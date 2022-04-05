@@ -13,13 +13,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use('/metadata', express.static('metadata'));
 
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-  app.get('*', function (req, res) {
-    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
-  });
-}
-
 require('./routes/nft.routes')(app);
 
 app.listen(port, (error) => {

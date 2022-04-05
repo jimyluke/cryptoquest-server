@@ -3,7 +3,7 @@
   "symbol": "WR",
   "description": "Description for NFT",
   "seller_fee_basis_points": 500,
-  "image": "http://localhost:5000/metadata/woodland_respite.png",
+  "image": "https://cryptoquest-server.herokuapp.com/metadata/woodland_respite.png",
   "external_url": "https://cryptoquestnft.com/",
   "collection": {
     "name": "Woodland Respite",
@@ -12,7 +12,7 @@
   "properties": {
     "files": [
       {
-        "uri": "http://localhost:5000/metadata/woodland_respite.png",
+        "uri": "https://cryptoquest-server.herokuapp.com/metadata/woodland_respite.png",
         "type": "image/png"
       }
     ],
