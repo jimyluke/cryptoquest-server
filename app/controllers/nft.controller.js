@@ -17,7 +17,7 @@ const keypair = path.resolve(__dirname, `../config/keypair.json`);
 //       symbol: 'WR',
 //       description: 'Description for NFT',
 //       seller_fee_basis_points: 500,
-//       image: `${process.env.SERVER_ADDRESS}/metadata/woodland_respite.png`,
+//       image: `${process.env.NODE_ENV === 'production' ? process.env.SERVER_ADDRESS : process.env.LOCAL_ADDRESS}/metadata/woodland_respite.png`,
 //       external_url: 'https://cryptoquestnft.com/',
 //       collection: {
 //         name: 'Woodland Respite',
@@ -26,7 +26,7 @@ const keypair = path.resolve(__dirname, `../config/keypair.json`);
 //       properties: {
 //         files: [
 //           {
-//             uri: `${process.env.SERVER_ADDRESS}/metadata/woodland_respite.png`,
+//             uri: `${process.env.NODE_ENV === 'production' ? process.env.SERVER_ADDRESS : process.env.LOCAL_ADDRESS}/metadata/woodland_respite.png`,
 //             type: 'image/png',
 //           },
 //         ],
@@ -47,7 +47,7 @@ const keypair = path.resolve(__dirname, `../config/keypair.json`);
 //     );
 
 //     exec(
-//       `metaboss update uri -a ${nftAddress} -k ${keypair} -u ${process.env.SERVER_ADDRESS}/metadata/woodland_respite.json`,
+//       `metaboss update uri -a ${nftAddress} -k ${keypair} -u ${process.env.NODE_ENV === 'production' ? process.env.SERVER_ADDRESS : process.env.LOCAL_ADDRESS}/metadata/woodland_respite.json`,
 //       (error, stdout, stderr) => {
 //         if (error) {
 //           console.log(error);
@@ -130,7 +130,11 @@ exports.revealNft = async (req, res) => {
     );
 
     exec(
-      `metaboss update uri -a ${nftAddress} -k ${keypair} -u ${process.env.SERVER_ADDRESS}/metadata/${nftAddress}.json`,
+      `metaboss update uri -a ${nftAddress} -k ${keypair} -u ${
+        process.env.NODE_ENV === 'production'
+          ? process.env.SERVER_ADDRESS
+          : process.env.LOCAL_ADDRESS
+      }/metadata/${nftAddress}.json`,
       (error, stdout, stderr) => {
         if (error) {
           console.log(error);
@@ -208,7 +212,11 @@ exports.customizeNft = async (req, res) => {
       symbol: 'WR',
       description: 'Description for NFT',
       seller_fee_basis_points: 500,
-      image: `${process.env.SERVER_ADDRESS}/metadata/after_customization.png`,
+      image: `${
+        process.env.NODE_ENV === 'production'
+          ? process.env.SERVER_ADDRESS
+          : process.env.LOCAL_ADDRESS
+      }/metadata/after_customization.png`,
       external_url: 'https://cryptoquestnft.com/',
       stat_points: currentNft.stat_points,
       rarity_points: currentNft.rarity_points,
@@ -237,7 +245,11 @@ exports.customizeNft = async (req, res) => {
       properties: {
         files: [
           {
-            uri: `${process.env.SERVER_ADDRESS}/metadata/after_customization.png`,
+            uri: `${
+              process.env.NODE_ENV === 'production'
+                ? process.env.SERVER_ADDRESS
+                : process.env.LOCAL_ADDRESS
+            }/metadata/after_customization.png`,
             type: 'image/png',
           },
         ],
@@ -258,7 +270,11 @@ exports.customizeNft = async (req, res) => {
     );
 
     exec(
-      `metaboss update uri -a ${nftAddress} -k ${keypair} -u ${process.env.SERVER_ADDRESS}/metadata/${nftAddress}.json`,
+      `metaboss update uri -a ${nftAddress} -k ${keypair} -u ${
+        process.env.NODE_ENV === 'production'
+          ? process.env.SERVER_ADDRESS
+          : process.env.LOCAL_ADDRESS
+      }/metadata/${nftAddress}.json`,
       (error, stdout, stderr) => {
         if (error) {
           console.log(error);

@@ -4,13 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "server": "cd app && nodemon index.js"
+    "start": "cd app && node index.js",
+    "start:dev": "cd app && nodemon index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "concurrently": "^7.0.0",
     "nodemon": "^2.0.15"
   },
   "dependencies": {
