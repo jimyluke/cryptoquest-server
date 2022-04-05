@@ -1,0 +1,47 @@
+{
+  "name": "Woodland Respite #1",
+  "symbol": "WR",
+  "description": "Description for NFT",
+  "seller_fee_basis_points": 500,
+  "image": "http://localhost:5000/metadata/after_customization.png",
+  "external_url": "https://cryptoquestnft.com/",
+  "stat_points": 114,
+  "rarity_points": 24,
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Black"
+    },
+    {
+      "trait_type": "Race",
+      "value": "Elf"
+    },
+    {
+      "trait_type": "Sex",
+      "value": "Female"
+    },
+    {
+      "trait_type": "Face Style",
+      "value": "High Elf"
+    }
+  ],
+  "collection": {
+    "name": "Woodland Respite",
+    "family": "CryptoQuest"
+  },
+  "properties": {
+    "files": [
+      {
+        "uri": "http://localhost:5000/metadata/after_customization.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image",
+    "creators": [
+      {
+        "address": "Fg1q7tUXS4St3cSFyT3jCPbvNk1N8MtqsNJBSXGB34WU",
+        "share": 100
+      }
+    ]
+  }
+}
