@@ -1,4 +1,5 @@
 const controller = require('../controllers/nft.controller');
+const { verifySignature } = require('../middleware');
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -10,10 +11,10 @@ module.exports = function (app) {
   });
 
   // Reveal nft
-  app.post('/api/reveal', controller.revealNft);
+  app.post('/api/reveal', verifySignature, controller.revealNft);
 
   // Customize nft
-  app.post('/api/customize', controller.customizeNft);
+  app.post('/api/customize', verifySignature, controller.customizeNft);
 
   // Load list of customized nfts for Admin UI
   app.get('/api/nfts', controller.loadCustomizedNfts);
