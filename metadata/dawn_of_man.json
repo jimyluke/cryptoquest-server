@@ -1,0 +1,27 @@
+{
+  "name": "Dawn of Man #1",
+  "symbol": "DOM",
+  "description": "Description for NFT",
+  "seller_fee_basis_points": 500,
+  "image": "./dawn_of_man.png",
+  "external_url": "https://cryptoquestnft.com/",
+  "collection": {
+    "name": "Dawn of Man",
+    "family": "CryptoQuest"
+  },
+  "properties": {
+    "files": [
+      {
+        "uri": "./dawn_of_man.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image",
+    "creators": [
+      {
+        "address": "Fg1q7tUXS4St3cSFyT3jCPbvNk1N8MtqsNJBSXGB34WU",
+        "share": 100
+      }
+    ]
+  }
+}

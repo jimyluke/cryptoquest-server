@@ -1,0 +1,97 @@
+{
+  "name": "Woodland Respite #1",
+  "symbol": "WR",
+  "description": "Description for NFT",
+  "seller_fee_basis_points": 500,
+  "image": "http://localhost:5000/metadata/after_customization.png",
+  "external_url": "https://cryptoquestnft.com",
+  "stat_points": 113,
+  "rarity_points": 215,
+  "constitution": 10,
+  "strength": 22,
+  "dexterity": 11,
+  "wisdom": 15,
+  "intelligence": 10,
+  "charisma": 13,
+  "attributes": [
+    {
+      "trait_type": "Race",
+      "value": "Human"
+    },
+    {
+      "trait_type": "Sex",
+      "value": "Female"
+    },
+    {
+      "trait_type": "Face Style",
+      "value": "Warrior"
+    },
+    {
+      "trait_type": "Eye Detail",
+      "value": "None"
+    },
+    {
+      "trait_type": "Eyes",
+      "value": "Black"
+    },
+    {
+      "trait_type": "Facial Hair",
+      "value": "None"
+    },
+    {
+      "trait_type": "Glasses",
+      "value": "None"
+    },
+    {
+      "trait_type": "Hair Style",
+      "value": "Long Bangs"
+    },
+    {
+      "trait_type": "Hair Color",
+      "value": "Blonde"
+    },
+    {
+      "trait_type": "Necklace",
+      "value": "None"
+    },
+    {
+      "trait_type": "Earring",
+      "value": "None"
+    },
+    {
+      "trait_type": "Nose Piercing",
+      "value": "None"
+    },
+    {
+      "trait_type": "Scar",
+      "value": "None"
+    },
+    {
+      "trait_type": "Tattoo",
+      "value": "None"
+    },
+    {
+      "trait_type": "Background",
+      "value": "Black"
+    }
+  ],
+  "collection": {
+    "name": "Woodland Respite",
+    "family": "CryptoQuest"
+  },
+  "properties": {
+    "files": [
+      {
+        "uri": "http://localhost:5000/metadata/after_customization.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image",
+    "creators": [
+      {
+        "address": "Fg1q7tUXS4St3cSFyT3jCPbvNk1N8MtqsNJBSXGB34WU",
+        "share": 100
+      }
+    ]
+  }
+}

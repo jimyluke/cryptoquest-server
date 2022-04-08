@@ -203,6 +203,31 @@ exports.customizeNft = async (req, res) => {
     console.log(`NFT ${tokenAddress} has been written to the database`);
     console.log(`Start changing metadata for NFT ${tokenAddress}`);
 
+    const cosmeticMap = {
+      race: 'Race',
+      sex: 'Sex',
+      faceStyle: 'Face Style',
+      eyeDetail: 'Eye Detail',
+      eyes: 'Eyes',
+      facialHair: 'Facial Hair',
+      glasses: 'Glasses',
+      hairStyle: 'Hair Style',
+      hairColor: 'Hair Color',
+      necklace: 'Necklace',
+      earring: 'Earring',
+      nosePiercing: 'Nose Piercing',
+      scar: 'Scar',
+      tattoo: 'Tattoo',
+      background: 'Background',
+    };
+
+    const attributes = Object.entries(cosmeticTraits)
+      .filter((item) => item[1] !== 'None')
+      .map((item) => ({
+        trait_type: cosmeticMap[item[0]],
+        value: item[1],
+      }));
+
     const metadata = {
       name: 'Woodland Respite #1',
       symbol: 'WR',
@@ -218,24 +243,7 @@ exports.customizeNft = async (req, res) => {
       wisdom: skills.wisdom,
       intelligence: skills.intelligence,
       charisma: skills.charisma,
-      attributes: [
-        {
-          trait_type: 'Background',
-          value: 'Black',
-        },
-        {
-          trait_type: 'Race',
-          value: 'Elf',
-        },
-        {
-          trait_type: 'Sex',
-          value: 'Female',
-        },
-        {
-          trait_type: 'Face Style',
-          value: 'High Elf',
-        },
-      ],
+      attributes,
       collection: {
         name: 'Woodland Respite',
         family: 'CryptoQuest',
