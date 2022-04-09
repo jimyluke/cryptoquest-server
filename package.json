@@ -14,6 +14,7 @@
     "nodemon": "^2.0.15"
   },
   "dependencies": {
+    "axios": "^0.26.1",
     "body-parser": "^1.19.2",
     "bs58": "^5.0.0",
     "cors": "^2.8.5",

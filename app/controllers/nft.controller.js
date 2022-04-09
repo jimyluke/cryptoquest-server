@@ -4,65 +4,23 @@ const path = require('path');
 const exec = util.promisify(require('child_process').exec);
 const pool = require('../config/db.config');
 const { randomInteger } = require('../utils/randomInteger');
+const axios = require('axios');
 
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
-
-// NFT RESET
-// exports.revealNft = async (req, res) => {
-//   try {
-//     const { tokenAddress } = req.body;
-//     console.log(`Start revealing NFT ${tokenAddress}`);
-
-//     const metadata = {
-//       name: 'Woodland Respite #1',
-//       symbol: 'WR',
-//       description: 'Description for NFT',
-//       seller_fee_basis_points: 500,
-//       image: `${process.env.SERVER_ADDRESS}/metadata/woodland_respite.png`,
-//       external_url: `${process.env.WEBSITE_URL}`,
-//       collection: {
-//         name: 'Woodland Respite',
-//         family: 'CryptoQuest',
-//       },
-//       properties: {
-//         files: [
-//           {
-//             uri: `${process.env.SERVER_ADDRESS}/metadata/woodland_respite.png`,
-//             type: 'image/png',
-//           },
-//         ],
-//         category: 'image',
-//         creators: [
-//           {
-//             address: `${process.env.UPDATE_AUTHORITY}`,
-//             share: 100,
-//           },
-//         ],
-//       },
-//     };
-
-//     const metadataJSON = JSON.stringify(metadata, null, 2);
-//     fs.writeFileSync(
-//       path.resolve(__dirname, `../../metadata/woodland_respite.json`),
-//       metadataJSON
-//     );
-
-//     await exec(
-//       `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${process.env.SERVER_ADDRESS}/metadata/woodland_respite.json`
-//     );
-
-//     console.log(`NFT ${tokenAddress} revealed`);
-
-//     res.status(200).send({ success: 'Success' });
-//   } catch (error) {
-//     res.status(404).send({ message: error.message });
-//   }
-// };
 
 // Reveal Nft
 exports.revealNft = async (req, res) => {
   try {
-    const { tokenAddress, collection } = req.body;
+    const { tokenAddress, metadataUri } = req.body;
+
+    const { data: oldMetadata } = await axios.get(metadataUri);
+
+    if (!oldMetadata) {
+      res.status(400).send({
+        message: `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`,
+      });
+      return;
+    }
 
     const isTokenAddressExistQuery = await pool.query(
       'SELECT EXISTS(SELECT * FROM tokens WHERE token_address = $1)',
@@ -84,25 +42,24 @@ exports.revealNft = async (req, res) => {
 
     await pool.query(
       'INSERT INTO tokens (token_address, collection, stat_points, rarity_points) VALUES($1, $2, $3, $4) RETURNING *',
-      [tokenAddress, collection, statPoints, rarityPoints]
+      [tokenAddress, oldMetadata?.collection?.name, statPoints, rarityPoints]
     );
 
     console.log(`NFT ${tokenAddress} has been written to the database`);
     console.log(`Start changing metadata for NFT ${tokenAddress}`);
 
     const metadata = {
-      name: `${tokenAddress.slice(0, 7)}...`, // TODO:
-      symbol: 'WR', // TODO:
-      description: 'Description for NFT', // TODO:
-      seller_fee_basis_points: 500, // TODO:
+      name: oldMetadata?.name,
+      symbol: oldMetadata?.symbol,
+      description: oldMetadata?.description,
+      seller_fee_basis_points: oldMetadata?.seller_fee_basis_points,
       image: 'https://upload.wikimedia.org/wikipedia/commons/2/24/NFT_Icon.png', // TODO:
       external_url: `${process.env.WEBSITE_URL}`,
       stat_points: statPoints,
       rarity_points: rarityPoints,
       collection: {
-        // TODO:
-        name: 'Woodland Respite',
-        family: 'CryptoQuest',
+        name: oldMetadata?.collection?.name,
+        family: oldMetadata?.collection?.family,
       },
       properties: {
         // TODO:
@@ -112,13 +69,8 @@ exports.revealNft = async (req, res) => {
             type: 'image/png',
           },
         ],
-        category: 'image',
-        creators: [
-          {
-            address: `${process.env.UPDATE_AUTHORITY}`,
-            share: 100,
-          },
-        ],
+        category: oldMetadata?.properties?.category,
+        creators: oldMetadata?.properties?.creators,
       },
     };
 
@@ -129,7 +81,11 @@ exports.revealNft = async (req, res) => {
     );
 
     const { stdout, stderr } = await exec(
-      `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${process.env.SERVER_ADDRESS}/metadata/${tokenAddress}.json`
+      `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
+        process.env.NODE_ENV === 'development'
+          ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
+          : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
+      }`
     );
     console.log('METABOSS:', stdout);
 
@@ -143,7 +99,17 @@ exports.revealNft = async (req, res) => {
 // Customize NFT
 exports.customizeNft = async (req, res) => {
   try {
-    const { tokenAddress, tokenName, cosmeticTraits, skills } = req.body;
+    const { tokenAddress, tokenName, cosmeticTraits, skills, metadataUri } =
+      req.body;
+
+    const { data: oldMetadata } = await axios.get(metadataUri);
+
+    if (!oldMetadata) {
+      res.status(400).send({
+        message: `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`,
+      });
+      return;
+    }
 
     const currentNftQuery = await pool.query(
       'SELECT * FROM tokens WHERE token_address = $1',
@@ -229,39 +195,42 @@ exports.customizeNft = async (req, res) => {
       }));
 
     const metadata = {
-      name: 'Woodland Respite #1',
-      symbol: 'WR',
-      description: 'Description for NFT',
-      seller_fee_basis_points: 500,
-      image: `${process.env.SERVER_ADDRESS}/metadata/after_customization.png`,
+      name: oldMetadata?.name,
+      symbol: oldMetadata?.symbol,
+      description: oldMetadata?.description,
+      seller_fee_basis_points: oldMetadata?.seller_fee_basis_points,
+      image: `${
+        process.env.NODE_ENV === 'development'
+          ? `${process.env.LOCAL_ADDRESS}/metadata/after_customization.png`
+          : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
+      }`,
       external_url: `${process.env.WEBSITE_URL}`,
-      stat_points: currentNft.stat_points,
-      rarity_points: currentNft.rarity_points,
-      constitution: skills.constitution,
-      strength: skills.strength,
-      dexterity: skills.dexterity,
-      wisdom: skills.wisdom,
-      intelligence: skills.intelligence,
-      charisma: skills.charisma,
+      stat_points: currentNft?.stat_points,
+      rarity_points: currentNft?.rarity_points,
+      constitution: skills?.constitution,
+      strength: skills?.strength,
+      dexterity: skills?.dexterity,
+      wisdom: skills?.wisdom,
+      intelligence: skills?.intelligence,
+      charisma: skills?.charisma,
       attributes,
       collection: {
-        name: 'Woodland Respite',
-        family: 'CryptoQuest',
+        name: oldMetadata?.collection?.name,
+        family: oldMetadata?.collection?.family,
       },
       properties: {
         files: [
           {
-            uri: `${process.env.SERVER_ADDRESS}/metadata/after_customization.png`,
+            uri: `${
+              process.env.NODE_ENV === 'development'
+                ? `${process.env.LOCAL_ADDRESS}/metadata/after_customization.png`
+                : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
+            }`,
             type: 'image/png',
           },
         ],
-        category: 'image',
-        creators: [
-          {
-            address: `${process.env.UPDATE_AUTHORITY}`,
-            share: 100,
-          },
-        ],
+        category: oldMetadata?.properties?.category,
+        creators: oldMetadata?.properties?.creators,
       },
     };
 
@@ -272,10 +241,13 @@ exports.customizeNft = async (req, res) => {
     );
 
     const { stdout, stderr } = await exec(
-      `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${process.env.SERVER_ADDRESS}/metadata/${tokenAddress}.json`
+      `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
+        process.env.NODE_ENV === 'development'
+          ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
+          : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
+      }`
     );
-    console.log('stdout:', stdout);
-    console.log('stderr:', stderr);
+    console.log('METABOSS:', stdout);
 
     res.status(200).send({ success: 'Success' });
   } catch (error) {
