@@ -121,7 +121,7 @@ exports.revealNft = async (req, res) => {
 
     const metadataJSON = JSON.stringify(metadata, null, 2);
     fs.writeFileSync(
-      path.resolve(__dirname, `../../metadata/${tokenAddress}.json`),
+      path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
       metadataJSON
     );
 
@@ -288,7 +288,7 @@ exports.customizeNft = async (req, res) => {
 
     const metadataJSON = JSON.stringify(metadata, null, 2);
     fs.writeFileSync(
-      path.resolve(__dirname, `../../metadata/${tokenAddress}.json`),
+      path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
       metadataJSON
     );
 

@@ -12,7 +12,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use('/metadata', express.static('../metadata'));
+app.use('/metadata', express.static('../../metadata'));
 
 // const ipfsFunction = async () => {
 //   const image = fs.readFileSync(
