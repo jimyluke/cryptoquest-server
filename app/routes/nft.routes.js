@@ -10,6 +10,9 @@ module.exports = function (app) {
     next();
   });
 
+  // Check is nft unique
+  app.post('/api/checkIsNftUnique', controller.checkIsNftUnique);
+
   // Reveal nft
   app.post('/api/reveal', verifySignature, controller.revealNft);
 

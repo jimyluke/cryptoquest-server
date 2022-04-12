@@ -8,6 +8,25 @@ const axios = require('axios');
 
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
 
+// Check is nft unique
+exports.checkIsNftUnique = async (req, res) => {
+  try {
+    const { tokenId } = req.body;
+
+    const isTokenIdExistQuery = await pool.query(
+      'SELECT EXISTS(SELECT * FROM characters WHERE token_id = $1)',
+      [tokenId]
+    );
+
+    const isTokenIdExist = isTokenIdExistQuery.rows[0].exists;
+
+    res.status(200).send({ isTokenIdExist });
+  } catch (error) {
+    console.log(error.message);
+    res.status(404).send(error.message);
+  }
+};
+
 // Reveal Nft
 exports.revealNft = async (req, res) => {
   try {
@@ -40,6 +59,25 @@ exports.revealNft = async (req, res) => {
     const statPoints = randomInteger(72, 120);
     const rarityPoints = randomInteger(20, 645);
 
+    const calculateHeroTier = () => {
+      const totalPoints = statPoints + rarityPoints;
+      if (totalPoints > 700) {
+        return 'mythic';
+      } else if (totalPoints > 600) {
+        return 'legendary';
+      } else if (totalPoints > 500) {
+        return 'epic';
+      } else if (totalPoints > 400) {
+        return 'rare';
+      } else if (totalPoints > 300) {
+        return 'uncommon';
+      } else {
+        return 'common';
+      }
+    };
+
+    const heroTier = calculateHeroTier();
+
     await pool.query(
       'INSERT INTO tokens (token_address, collection, stat_points, rarity_points) VALUES($1, $2, $3, $4) RETURNING *',
       [tokenAddress, oldMetadata?.collection?.name, statPoints, rarityPoints]
@@ -53,7 +91,11 @@ exports.revealNft = async (req, res) => {
       symbol: oldMetadata?.symbol,
       description: oldMetadata?.description,
       seller_fee_basis_points: oldMetadata?.seller_fee_basis_points,
-      image: 'https://upload.wikimedia.org/wikipedia/commons/2/24/NFT_Icon.png', // TODO:
+      image: `${
+        process.env.NODE_ENV === 'development'
+          ? `${process.env.LOCAL_ADDRESS}/metadata/woodland-respite-${heroTier}.png`
+          : `${process.env.SERVER_ADDRESS}/api/metadata/woodland-respite-${heroTier}.png`
+      }`,
       external_url: `${process.env.WEBSITE_URL}`,
       stat_points: statPoints,
       rarity_points: rarityPoints,
@@ -62,10 +104,13 @@ exports.revealNft = async (req, res) => {
         family: oldMetadata?.collection?.family,
       },
       properties: {
-        // TODO:
         files: [
           {
-            uri: 'https://upload.wikimedia.org/wikipedia/commons/2/24/NFT_Icon.png',
+            uri: `${
+              process.env.NODE_ENV === 'development'
+                ? `${process.env.LOCAL_ADDRESS}/metadata/woodland-respite-${heroTier}.png`
+                : `${process.env.SERVER_ADDRESS}/api/metadata/woodland-respite-${heroTier}.png`
+            }`,
             type: 'image/png',
           },
         ],
@@ -89,7 +134,7 @@ exports.revealNft = async (req, res) => {
     );
     console.log('METABOSS:', stdout);
 
-    res.status(200).send({ tokenAddress, statPoints, rarityPoints }); // TODO:
+    res.status(200).send({ tokenAddress, heroTier, statPoints, rarityPoints }); // TODO:
   } catch (error) {
     console.log(error.message);
     res.status(404).send(error.message);
@@ -99,8 +144,14 @@ exports.revealNft = async (req, res) => {
 // Customize NFT
 exports.customizeNft = async (req, res) => {
   try {
-    const { tokenAddress, tokenName, cosmeticTraits, skills, metadataUri } =
-      req.body;
+    const {
+      tokenAddress,
+      tokenName,
+      tokenId,
+      cosmeticTraits,
+      skills,
+      metadataUri,
+    } = req.body;
 
     const { data: oldMetadata } = await axios.get(metadataUri);
 
@@ -125,7 +176,7 @@ exports.customizeNft = async (req, res) => {
     }
 
     const isTokenAddressExistQuery = await pool.query(
-      'SELECT EXISTS(SELECT * FROM characters WHERE token_id = $1)',
+      'SELECT EXISTS(SELECT * FROM characters WHERE nft_id = $1)',
       [currentNft.id]
     );
 
@@ -138,9 +189,10 @@ exports.customizeNft = async (req, res) => {
     console.log(`Start customizing NFT ${tokenAddress}`);
 
     await pool.query(
-      'INSERT INTO characters (token_id, constitution, strength, dexterity, wisdom, intelligence, charisma, token_name, race, sex, face_style, eye_detail, eyes, facial_hair, glasses, hair_style, hair_color, necklace, earring, nose_piercing, scar, tattoo, background) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *',
+      'INSERT INTO characters (nft_id, token_id, constitution, strength, dexterity, wisdom, intelligence, charisma, token_name, race, sex, face_style, eye_detail, eyes, facial_hair, glasses, hair_style, hair_color, necklace, earring, nose_piercing, scar, tattoo, background) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24) RETURNING *',
       [
         currentNft.id,
+        tokenId,
         skills.constitution,
         skills.strength,
         skills.dexterity,
@@ -188,7 +240,7 @@ exports.customizeNft = async (req, res) => {
     };
 
     const attributes = Object.entries(cosmeticTraits)
-      .filter((item) => item[1] !== 'None')
+      // .filter((item) => item[1] !== 'None')
       .map((item) => ({
         trait_type: cosmeticMap[item[0]],
         value: item[1],

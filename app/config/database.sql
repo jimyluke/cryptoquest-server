@@ -10,7 +10,8 @@ CREATE TABLE tokens(
 
 CREATE TABLE characters(
   id SERIAL PRIMARY KEY,
-  token_id INT,
+  nft_id INT,
+  token_id VARCHAR(100) NOT NULL,
   constitution INT NOT NULL,
   strength INT NOT NULL,
   dexterity INT NOT NULL,
@@ -33,5 +34,5 @@ CREATE TABLE characters(
   scar VARCHAR(100),
   tattoo VARCHAR(100),
   background VARCHAR(100) NOT NULL,
-  CONSTRAINT fk_token FOREIGN KEY(token_id) REFERENCES tokens(id)
+  CONSTRAINT fk_token FOREIGN KEY(nft_id) REFERENCES tokens(id)
 );
