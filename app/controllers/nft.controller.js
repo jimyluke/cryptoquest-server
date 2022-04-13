@@ -57,10 +57,10 @@ exports.revealNft = async (req, res) => {
     console.log(`Start revealing NFT ${tokenAddress}`);
 
     const statPoints = randomInteger(72, 120);
-    const rarityPoints = randomInteger(20, 645);
+    const cosmeticPoints = randomInteger(20, 645);
 
     const calculateHeroTier = () => {
-      const totalPoints = statPoints + rarityPoints;
+      const totalPoints = statPoints + cosmeticPoints;
       if (totalPoints > 700) {
         return 'mythic';
       } else if (totalPoints > 600) {
@@ -79,8 +79,8 @@ exports.revealNft = async (req, res) => {
     const heroTier = calculateHeroTier();
 
     await pool.query(
-      'INSERT INTO tokens (token_address, collection, stat_points, rarity_points) VALUES($1, $2, $3, $4) RETURNING *',
-      [tokenAddress, oldMetadata?.collection?.name, statPoints, rarityPoints]
+      'INSERT INTO tokens (token_address, collection, stat_points, cosmetic_points) VALUES($1, $2, $3, $4) RETURNING *',
+      [tokenAddress, oldMetadata?.collection?.name, statPoints, cosmeticPoints]
     );
 
     console.log(`NFT ${tokenAddress} has been written to the database`);
@@ -98,7 +98,7 @@ exports.revealNft = async (req, res) => {
       }`,
       external_url: `${process.env.WEBSITE_URL}`,
       stat_points: statPoints,
-      rarity_points: rarityPoints,
+      cosmetic_points: cosmeticPoints,
       collection: {
         name: oldMetadata?.collection?.name,
         family: oldMetadata?.collection?.family,
@@ -134,7 +134,9 @@ exports.revealNft = async (req, res) => {
     );
     console.log('METABOSS:', stdout);
 
-    res.status(200).send({ tokenAddress, heroTier, statPoints, rarityPoints }); // TODO:
+    res
+      .status(200)
+      .send({ tokenAddress, heroTier, statPoints, cosmeticPoints }); // TODO:
   } catch (error) {
     console.log(error.message);
     res.status(404).send(error.message);
@@ -258,7 +260,7 @@ exports.customizeNft = async (req, res) => {
       }`,
       external_url: `${process.env.WEBSITE_URL}`,
       stat_points: currentNft?.stat_points,
-      rarity_points: currentNft?.rarity_points,
+      cosmetic_points: currentNft?.cosmetic_points,
       constitution: skills?.constitution,
       strength: skills?.strength,
       dexterity: skills?.dexterity,

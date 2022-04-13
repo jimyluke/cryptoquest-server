@@ -5,7 +5,7 @@ CREATE TABLE tokens(
   token_address VARCHAR(100) NOT NULL,
   collection VARCHAR(100) NOT NULL,
   stat_points INT NOT NULL,
-  rarity_points INT NOT NULL
+  cosmetic_points INT NOT NULL
 );
 
 CREATE TABLE characters(

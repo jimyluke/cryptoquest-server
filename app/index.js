@@ -32,7 +32,7 @@ app.use('/metadata', express.static('../../metadata'));
 //     image: 'https://upload.wikimedia.org/wikipedia/commons/2/24/NFT_Icon.png',
 //     external_url: 'https://cryptoquestnft.com/',
 //     stat_points: 75,
-//     rarity_points: 383,
+//     cosmetic_points: 383,
 //     collection: {
 //       name: 'Woodland Respite3',
 //       family: 'CryptoQuest',
