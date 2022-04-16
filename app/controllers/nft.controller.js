@@ -3,8 +3,12 @@ const util = require('util');
 const path = require('path');
 const exec = util.promisify(require('child_process').exec);
 const pool = require('../config/db.config');
-const { randomInteger } = require('../utils/randomInteger');
 const axios = require('axios');
+const {
+  calculateStatTier,
+  calculateCosmeticTier,
+} = require('../utils/calculateTiers');
+const { randomInteger } = require('../utils/randomInteger');
 
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
 
@@ -56,31 +60,77 @@ exports.revealNft = async (req, res) => {
 
     console.log(`Start revealing NFT ${tokenAddress}`);
 
-    const statPoints = randomInteger(72, 120);
-    const cosmeticPoints = randomInteger(20, 645);
+    // Get collection of NFT
+    const collection = oldMetadata?.collection?.name;
 
-    const calculateHeroTier = () => {
-      const totalPoints = statPoints + cosmeticPoints;
-      if (totalPoints > 700) {
-        return 'mythic';
-      } else if (totalPoints > 600) {
-        return 'legendary';
-      } else if (totalPoints > 500) {
-        return 'epic';
-      } else if (totalPoints > 400) {
-        return 'rare';
-      } else if (totalPoints > 300) {
-        return 'uncommon';
-      } else {
-        return 'common';
-      }
-    };
+    // Select all possible tokens from collection
+    let allTokensFromCollection;
+    if (collection === 'Woodland Respite') {
+      allTokensFromCollection = await pool.query(
+        'SELECT * FROM woodland_respite'
+      );
+    } else if (collection === 'Dawn of Man') {
+      allTokensFromCollection = await pool.query('SELECT * FROM dawn_of_man');
+    }
 
-    const heroTier = calculateHeroTier();
+    // Select all already revealed tokens from collection
+    const revealedTokensFromCollection = await pool.query(
+      'SELECT * FROM tokens WHERE collection = $1',
+      [collection]
+    );
+
+    const allTokenNumbers = Array.from(
+      { length: allTokensFromCollection.rows.length },
+      (_, i) => i + 1
+    );
+
+    const revealedTokenNumbers = revealedTokensFromCollection?.rows.map(
+      (item) => item?.token_number
+    );
+    // eslint-disable-next-line no-undef
+    const revealedTokenNumbersSet = new Set(revealedTokenNumbers);
+    const remainingTokenNumbers = allTokenNumbers.filter(
+      (item) => !revealedTokenNumbersSet.has(item)
+    );
+
+    if (remainingTokenNumbers.length <= 0) {
+      res.status(400).send({
+        message: `All tokens already revealed`,
+      });
+      return;
+    }
+
+    const randomTokenNumberIndex = randomInteger(
+      0,
+      remainingTokenNumbers.length - 1
+    );
+
+    const selectedTokenNumber = remainingTokenNumbers[randomTokenNumberIndex];
+
+    const {
+      token_number: tokenNumber,
+      stat_points: statPoints,
+      cosmetic_points: cosmeticPoints,
+      hero_tier: heroTier,
+    } = allTokensFromCollection.rows.find(
+      (item) => item.token_number === selectedTokenNumber
+    );
+
+    const statTier = calculateStatTier(statPoints);
+    const cosmeticTier = calculateCosmeticTier(cosmeticPoints);
 
     await pool.query(
-      'INSERT INTO tokens (token_address, collection, stat_points, cosmetic_points) VALUES($1, $2, $3, $4) RETURNING *',
-      [tokenAddress, oldMetadata?.collection?.name, statPoints, cosmeticPoints]
+      'INSERT INTO tokens (token_address, collection, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [
+        tokenAddress,
+        collection,
+        tokenNumber,
+        statPoints,
+        cosmeticPoints,
+        statTier,
+        cosmeticTier,
+        heroTier,
+      ]
     );
 
     console.log(`NFT ${tokenAddress} has been written to the database`);
@@ -93,14 +143,21 @@ exports.revealNft = async (req, res) => {
       seller_fee_basis_points: oldMetadata?.seller_fee_basis_points,
       image: `${
         process.env.NODE_ENV === 'development'
-          ? `${process.env.LOCAL_ADDRESS}/metadata/woodland-respite-${heroTier}.png`
-          : `${process.env.SERVER_ADDRESS}/api/metadata/woodland-respite-${heroTier}.png`
+          ? `${
+              process.env.LOCAL_ADDRESS
+            }/metadata/woodland-respite-${heroTier.toLowerCase()}.png`
+          : `${
+              process.env.SERVER_ADDRESS
+            }/api/metadata/woodland-respite-${heroTier.toLowerCase()}.png`
       }`,
       external_url: `${process.env.WEBSITE_URL}`,
       stat_points: statPoints,
       cosmetic_points: cosmeticPoints,
+      stat_tier: statTier,
+      cosmetic_tier: cosmeticTier,
+      hero_tier: heroTier,
       collection: {
-        name: oldMetadata?.collection?.name,
+        name: collection,
         family: oldMetadata?.collection?.family,
       },
       properties: {
@@ -108,8 +165,12 @@ exports.revealNft = async (req, res) => {
           {
             uri: `${
               process.env.NODE_ENV === 'development'
-                ? `${process.env.LOCAL_ADDRESS}/metadata/woodland-respite-${heroTier}.png`
-                : `${process.env.SERVER_ADDRESS}/api/metadata/woodland-respite-${heroTier}.png`
+                ? `${
+                    process.env.LOCAL_ADDRESS
+                  }/metadata/woodland-respite-${heroTier.toLowerCase()}.png`
+                : `${
+                    process.env.SERVER_ADDRESS
+                  }/api/metadata/woodland-respite-${heroTier.toLowerCase()}.png`
             }`,
             type: 'image/png',
           },
@@ -125,7 +186,7 @@ exports.revealNft = async (req, res) => {
       metadataJSON
     );
 
-    const { stdout, stderr } = await exec(
+    const { stdout } = await exec(
       `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
         process.env.NODE_ENV === 'development'
           ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
@@ -134,9 +195,14 @@ exports.revealNft = async (req, res) => {
     );
     console.log('METABOSS:', stdout);
 
-    res
-      .status(200)
-      .send({ tokenAddress, heroTier, statPoints, cosmeticPoints }); // TODO:
+    res.status(200).send({
+      tokenAddress,
+      statPoints,
+      cosmeticPoints,
+      heroTier,
+      statTier,
+      cosmeticTier,
+    }); // TODO:
   } catch (error) {
     console.log(error.message);
     res.status(404).send(error.message);
@@ -259,8 +325,11 @@ exports.customizeNft = async (req, res) => {
           : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
       }`,
       external_url: `${process.env.WEBSITE_URL}`,
-      stat_points: currentNft?.stat_points,
-      cosmetic_points: currentNft?.cosmetic_points,
+      stat_points: oldMetadata?.stat_points,
+      cosmetic_points: oldMetadata?.cosmetic_points,
+      stat_tier: oldMetadata?.stat_tier,
+      cosmetic_tier: oldMetadata?.cosmetic_tier,
+      hero_tier: oldMetadata?.hero_tier,
       constitution: skills?.constitution,
       strength: skills?.strength,
       dexterity: skills?.dexterity,
@@ -294,7 +363,7 @@ exports.customizeNft = async (req, res) => {
       metadataJSON
     );
 
-    const { stdout, stderr } = await exec(
+    const { stdout } = await exec(
       `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
         process.env.NODE_ENV === 'development'
           ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`

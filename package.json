@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "cd app && node index.js",
-    "start:dev": "cd app && nodemon index.js"
+    "start:dev": "cd app && nodemon index.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix",
+    "format": "prettier --write './**/*.{js,jsx,ts,tsx,css,md,json}' --config ./.prettierrc"
   },
   "keywords": [],
   "author": "",
@@ -20,9 +23,13 @@
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^16.0.0",
+    "eslint": "^8.13.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.0.0",
     "express": "^4.17.3",
     "ipfs-core": "^0.14.1",
     "pg": "^8.7.3",
+    "prettier": "^2.6.2",
     "tweetnacl": "^1.0.3"
   }
 }
