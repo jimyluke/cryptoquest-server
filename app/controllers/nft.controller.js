@@ -31,15 +31,44 @@ exports.checkIsNftUnique = async (req, res) => {
   }
 };
 
+// Check is token name unique
+exports.checkIsTokenNameUnique = async (req, res) => {
+  try {
+    const { tokenName } = req.body;
+    const tokenNameLower = tokenName.trim().toLowerCase();
+
+    const tokenNames = await pool.query('SELECT * FROM token_names');
+    const tokenNamesLower = tokenNames.rows.map((item) =>
+      item.token_name.toLowerCase()
+    );
+
+    const isTokenNameExist = tokenNamesLower.includes(tokenNameLower);
+
+    res.status(200).send({ isTokenNameExist });
+  } catch (error) {
+    console.log(error.message);
+    res.status(404).send(error.message);
+  }
+};
+
 // Reveal Nft
 exports.revealNft = async (req, res) => {
   try {
     const { tokenAddress, metadataUri } = req.body;
 
-    const { data: oldMetadata } = await axios.get(metadataUri);
+    let oldMetadata;
+    try {
+      const { data } = await axios.get(metadataUri);
+      oldMetadata = data;
+    } catch (error) {
+      res.status(404).send({
+        message: `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`,
+      });
+      return;
+    }
 
     if (!oldMetadata) {
-      res.status(400).send({
+      res.status(404).send({
         message: `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`,
       });
       return;
@@ -119,21 +148,6 @@ exports.revealNft = async (req, res) => {
     const statTier = calculateStatTier(statPoints);
     const cosmeticTier = calculateCosmeticTier(cosmeticPoints);
 
-    await pool.query(
-      'INSERT INTO tokens (token_address, collection, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [
-        tokenAddress,
-        collection,
-        tokenNumber,
-        statPoints,
-        cosmeticPoints,
-        statTier,
-        cosmeticTier,
-        heroTier,
-      ]
-    );
-
-    console.log(`NFT ${tokenAddress} has been written to the database`);
     console.log(`Start changing metadata for NFT ${tokenAddress}`);
 
     const metadata = {
@@ -186,14 +200,42 @@ exports.revealNft = async (req, res) => {
       metadataJSON
     );
 
-    const { stdout } = await exec(
-      `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
-        process.env.NODE_ENV === 'development'
-          ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
-          : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
-      }`
+    try {
+      const { stdout, stderr } = await exec(
+        `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
+          process.env.NODE_ENV === 'development'
+            ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
+            : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
+        }`
+      );
+
+      console.log('METABOSS STDOUT:', stdout);
+      if (stderr) console.log('METABOSS STDERR:', stderr);
+    } catch (error) {
+      fs.unlinkSync(
+        path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`)
+      );
+      res.status(404).send({
+        message: `Unable to change metadata, Solana blockchain unavailable, please try again later`,
+      });
+      return;
+    }
+
+    await pool.query(
+      'INSERT INTO tokens (token_address, collection, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [
+        tokenAddress,
+        collection,
+        tokenNumber,
+        statPoints,
+        cosmeticPoints,
+        statTier,
+        cosmeticTier,
+        heroTier,
+      ]
     );
-    console.log('METABOSS:', stdout);
+
+    console.log(`NFT ${tokenAddress} has been written to the database`);
 
     res.status(200).send({
       tokenAddress,
@@ -202,7 +244,7 @@ exports.revealNft = async (req, res) => {
       heroTier,
       statTier,
       cosmeticTier,
-    }); // TODO:
+    });
   } catch (error) {
     console.log(error.message);
     res.status(404).send(error.message);
@@ -255,38 +297,6 @@ exports.customizeNft = async (req, res) => {
     }
 
     console.log(`Start customizing NFT ${tokenAddress}`);
-
-    await pool.query(
-      'INSERT INTO characters (nft_id, token_id, constitution, strength, dexterity, wisdom, intelligence, charisma, token_name, race, sex, face_style, eye_detail, eyes, facial_hair, glasses, hair_style, hair_color, necklace, earring, nose_piercing, scar, tattoo, background) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24) RETURNING *',
-      [
-        currentNft.id,
-        tokenId,
-        skills.constitution,
-        skills.strength,
-        skills.dexterity,
-        skills.wisdom,
-        skills.intelligence,
-        skills.charisma,
-        tokenName,
-        cosmeticTraits.race,
-        cosmeticTraits.sex,
-        cosmeticTraits.faceStyle,
-        cosmeticTraits.eyeDetail,
-        cosmeticTraits.eyes,
-        cosmeticTraits.facialHair,
-        cosmeticTraits.glasses,
-        cosmeticTraits.hairStyle,
-        cosmeticTraits.hairColor,
-        cosmeticTraits.necklace,
-        cosmeticTraits.earring,
-        cosmeticTraits.nosePiercing,
-        cosmeticTraits.scar,
-        cosmeticTraits.tattoo,
-        cosmeticTraits.background,
-      ]
-    );
-
-    console.log(`NFT ${tokenAddress} has been written to the database`);
     console.log(`Start changing metadata for NFT ${tokenAddress}`);
 
     const cosmeticMap = {
@@ -307,12 +317,10 @@ exports.customizeNft = async (req, res) => {
       background: 'Background',
     };
 
-    const attributes = Object.entries(cosmeticTraits)
-      // .filter((item) => item[1] !== 'None')
-      .map((item) => ({
-        trait_type: cosmeticMap[item[0]],
-        value: item[1],
-      }));
+    const attributes = Object.entries(cosmeticTraits).map((item) => ({
+      trait_type: cosmeticMap[item[0]],
+      value: item[1],
+    }));
 
     const metadata = {
       name: oldMetadata?.name,
@@ -325,6 +333,7 @@ exports.customizeNft = async (req, res) => {
           : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
       }`,
       external_url: `${process.env.WEBSITE_URL}`,
+      token_name_status: 'under_consideration',
       stat_points: oldMetadata?.stat_points,
       cosmetic_points: oldMetadata?.cosmetic_points,
       stat_tier: oldMetadata?.stat_tier,
@@ -363,14 +372,69 @@ exports.customizeNft = async (req, res) => {
       metadataJSON
     );
 
-    const { stdout } = await exec(
-      `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
-        process.env.NODE_ENV === 'development'
-          ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
-          : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
-      }`
+    try {
+      const { stdout, stderr } = await exec(
+        `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
+          process.env.NODE_ENV === 'development'
+            ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
+            : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
+        }`
+      );
+
+      console.log('METABOSS STDOUT:', stdout);
+      if (stderr) console.log('METABOSS STDERR:', stderr);
+    } catch (error) {
+      const metadata = {
+        ...oldMetadata,
+      };
+
+      const metadataJSON = JSON.stringify(metadata, null, 2);
+      fs.writeFileSync(
+        path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
+        metadataJSON
+      );
+
+      res.status(404).send({
+        message: `Unable to change metadata, Solana blockchain unavailable, please try again later`,
+      });
+      return;
+    }
+
+    await pool.query(
+      'INSERT INTO token_names (nft_id, token_name, token_name_status) VALUES($1, $2, $3) RETURNING *',
+      [currentNft.id, tokenName, 'under_consideration']
     );
-    console.log('METABOSS:', stdout);
+
+    await pool.query(
+      'INSERT INTO characters (nft_id, token_id, constitution, strength, dexterity, wisdom, intelligence, charisma, race, sex, face_style, eye_detail, eyes, facial_hair, glasses, hair_style, hair_color, necklace, earring, nose_piercing, scar, tattoo, background) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *',
+      [
+        currentNft.id,
+        tokenId,
+        skills.constitution,
+        skills.strength,
+        skills.dexterity,
+        skills.wisdom,
+        skills.intelligence,
+        skills.charisma,
+        cosmeticTraits.race,
+        cosmeticTraits.sex,
+        cosmeticTraits.faceStyle,
+        cosmeticTraits.eyeDetail,
+        cosmeticTraits.eyes,
+        cosmeticTraits.facialHair,
+        cosmeticTraits.glasses,
+        cosmeticTraits.hairStyle,
+        cosmeticTraits.hairColor,
+        cosmeticTraits.necklace,
+        cosmeticTraits.earring,
+        cosmeticTraits.nosePiercing,
+        cosmeticTraits.scar,
+        cosmeticTraits.tattoo,
+        cosmeticTraits.background,
+      ]
+    );
+
+    console.log(`NFT ${tokenAddress} has been written to the database`);
 
     res.status(200).send({ success: 'Success' });
   } catch (error) {
@@ -378,69 +442,171 @@ exports.customizeNft = async (req, res) => {
   }
 };
 
-// Load list of customized nfts for Admin UI
-exports.loadCustomizedNfts = async (req, res) => {
+exports.loadTokenNames = async (req, res) => {
   try {
-    const range = req.query.range
-      .slice(1, -1)
-      .split(',')
-      .map((i) => Number(i));
-    let [sortBy, sortOrder] = req.query.sort.slice(1, -1).split(',');
-    sortBy = sortBy.slice(1, -1);
-    const { rowCount, rows: allNfts } = await pool.query(
-      'SELECT * FROM tokens'
-    );
-    res.header('Content-Range', `tokens 0-${rowCount}/${rowCount}`);
-    res.header('Access-Control-Expose-Headers', 'Content-Range');
-    allNfts.sort((a, b) =>
-      (
-        sortOrder.slice(1, -1) === 'ASC'
-          ? a[sortBy] < b[sortBy]
-          : a[sortBy] > b[sortBy]
-      )
-        ? -1
-        : 1
+    const { rows: allTokenNames } = await pool.query(
+      'SELECT * FROM token_names WHERE token_name_status = $1',
+      ['under_consideration']
     );
 
-    const sortedfts = allNfts.slice(range[0], range[1] + 1);
-    res.json(sortedfts);
+    res.json(allTokenNames);
   } catch (error) {
     console.error(error.message);
   }
 };
 
-// Load single customized nft for Admin UI
-exports.loadCustomizedNft = async (req, res) => {
+exports.loadTokenName = async (req, res) => {
   try {
-    const { nftId } = req.params;
-    const nfts = await pool.query(`SELECT * FROM tokens WHERE id = ${nftId}`);
-    res.json(nfts.rows[0]);
-  } catch (error) {
-    console.error(error.message);
-  }
-};
-
-// Edit customized nft from Admin UI
-exports.editCustomizedNft = async (req, res) => {
-  try {
-    const { nftId } = req.params;
-    const { token_name, race } = req.body;
-    const nft = await pool.query(
-      'UPDATE tokens SET token_name = $1, race = $2 WHERE id = $3 RETURNING *',
-      [token_name, race, nftId]
+    const { tokenNameId } = req.params;
+    const tokenNames = await pool.query(
+      `SELECT * FROM token_names WHERE id = ${tokenNameId}`
     );
-    res.json(nft.rows[0]);
+    res.json(tokenNames.rows[0]);
   } catch (error) {
     console.error(error.message);
   }
 };
 
-// Delete customized nft from Admin UI
-exports.deleteCustomizedNft = async (req, res) => {
+const handleTokenNameStatusChange = async (req, res, tokenNameId, status) => {
+  const tokenNameData = await pool.query(
+    'SELECT * FROM token_names WHERE id = $1',
+    [tokenNameId]
+  );
+
+  if (!tokenNameData.rows[0]) {
+    res.status(404).send({
+      message: `There is no token name with id ${tokenNameId}`,
+    });
+    return;
+  }
+
+  const tokenId = tokenNameData.rows[0].nft_id;
+  const tokenName = tokenNameData.rows[0].token_name;
+
+  const tokenData = await pool.query('SELECT * FROM tokens WHERE id = $1', [
+    tokenId,
+  ]);
+
+  if (!tokenData.rows[0]) {
+    res.status(404).send({
+      message: `There is no token with id ${tokenId}`,
+    });
+    return;
+  }
+
+  const tokenAddress = tokenData.rows[0].token_address;
+
+  let oldMetadata;
   try {
-    const { nftId } = req.params;
-    await pool.query('DELETE FROM tokens WHERE id = $1', [nftId]);
-    res.json('Nft was deleted');
+    // TODO:
+    const { data } = await axios.get(
+      process.env.NODE_ENV === 'development'
+        ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
+        : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
+    );
+    oldMetadata = data;
+  } catch (error) {
+    res.status(404).send({
+      message: `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`,
+    });
+    return;
+  }
+
+  if (!oldMetadata) {
+    res.status(404).send({
+      message: `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`,
+    });
+    return;
+  }
+
+  const metadata = {
+    ...oldMetadata,
+    ...(status === 'approved'
+      ? { name: tokenName, token_name_status: 'approved' }
+      : status === 'rejected'
+      ? { token_name_status: 'rejected' }
+      : {}),
+  };
+
+  const metadataJSON = JSON.stringify(metadata, null, 2);
+  fs.writeFileSync(
+    path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
+    metadataJSON
+  );
+
+  try {
+    const { stdout, stderr } = await exec(
+      `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
+        process.env.NODE_ENV === 'development'
+          ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
+          : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
+      }`
+    );
+
+    console.log('METABOSS STDOUT:', stdout);
+    if (stderr) console.log('METABOSS STDERR:', stderr);
+  } catch (error) {
+    const metadata = {
+      ...oldMetadata,
+    };
+
+    const metadataJSON = JSON.stringify(metadata, null, 2);
+    fs.writeFileSync(
+      path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
+      metadataJSON
+    );
+
+    res.status(404).send({
+      message: `Unable to change metadata, Solana blockchain unavailable, please try again later`,
+    });
+    return;
+  }
+
+  return tokenName;
+};
+
+exports.approveTokenName = async (req, res) => {
+  try {
+    const { tokenNameId } = req.body;
+
+    const tokenName = await handleTokenNameStatusChange(
+      req,
+      res,
+      tokenNameId,
+      'approved'
+    );
+
+    if (!tokenName || res.statusCode === 404) return;
+
+    await pool.query(
+      'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
+      ['approved', tokenNameId]
+    );
+    res.status(200).send({
+      message: `Token name ${tokenName} successfully approved`,
+    });
+  } catch (error) {
+    console.error(error.message);
+  }
+};
+
+exports.rejectTokenName = async (req, res) => {
+  try {
+    const { tokenNameId } = req.body;
+
+    const tokenName = await handleTokenNameStatusChange(
+      req,
+      res,
+      tokenNameId,
+      'rejected'
+    );
+
+    if (!tokenName || res.statusCode === 404) return;
+
+    await pool.query('DELETE FROM token_names WHERE id = $1', [tokenNameId]);
+    res.status(200).send({
+      message: `Token name ${tokenName} successfully rejected`,
+    });
   } catch (error) {
     console.error(error.message);
   }

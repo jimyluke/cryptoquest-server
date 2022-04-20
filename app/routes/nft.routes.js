@@ -1,5 +1,5 @@
 const controller = require('../controllers/nft.controller');
-const { verifySignature } = require('../middleware');
+const { verifySignature, verifyToken } = require('../middleware');
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -13,21 +13,28 @@ module.exports = function (app) {
   // Check is nft unique
   app.post('/api/checkIsNftUnique', controller.checkIsNftUnique);
 
+  // Check is token name unique
+  app.post('/api/checkIsTokenNameUnique', controller.checkIsTokenNameUnique);
+
   // Reveal nft
   app.post('/api/reveal', verifySignature, controller.revealNft);
 
   // Customize nft
   app.post('/api/customize', verifySignature, controller.customizeNft);
 
-  // Load list of customized nfts for Admin UI
-  app.get('/api/nfts', controller.loadCustomizedNfts);
+  // Load list of token names
+  app.get('/api/tokenNames', verifyToken, controller.loadTokenNames);
 
-  // Load single customized nft for Admin UI
-  app.get('/api/nfts/:nftId', controller.loadCustomizedNft);
+  // Load single token name
+  app.get(
+    '/api/tokenNames/:tokenNameId',
+    verifyToken,
+    controller.loadTokenName
+  );
 
-  // Edit customized nft from Admin UI
-  app.put('/api/nfts/:nftId', controller.editCustomizedNft);
+  // Approve token name
+  app.post('/api/tokenNames/approve', verifyToken, controller.approveTokenName);
 
-  // Delete customized nft
-  app.delete('/api/nfts/:nftId', controller.deleteCustomizedNft);
+  // Reject token name
+  app.post('/api/tokenNames/reject', verifyToken, controller.rejectTokenName);
 };

@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 
@@ -28,4 +29,26 @@ exports.verifySignature = async (req, res, next) => {
     console.log(error.message);
     res.status(405).send(error.message);
   }
+};
+
+exports.verifyToken = (req, res, next) => {
+  let token = req.headers['x-access-token'];
+
+  if (!token) {
+    return res.status(403).send({
+      message: 'No token provided',
+    });
+  }
+
+  jwt.verify(token, process.env.TOKEN_SECRET, async (err, decoded) => {
+    if (err) {
+      return res.status(401).send({
+        message: 'Session expired',
+      });
+    }
+
+    req.userId = decoded.id;
+
+    next();
+  });
 };

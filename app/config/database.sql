@@ -22,7 +22,6 @@ CREATE TABLE characters(
   wisdom INT NOT NULL,
   intelligence INT NOT NULL,
   charisma INT NOT NULL,
-  token_name VARCHAR(255) NOT NULL,
   race VARCHAR(100) NOT NULL,
   sex VARCHAR(100) NOT NULL,
   face_style VARCHAR(100) NOT NULL,
@@ -61,4 +60,18 @@ CREATE TABLE dawn_of_man(
   ht_points_sp NUMERIC(7, 3) NOT NULL,
   ht_points_total NUMERIC(7, 3) NOT NULL,
   hero_tier VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE token_names(
+  id SERIAL PRIMARY KEY,
+  nft_id INT NOT NULL,
+  token_name VARCHAR(100) NOT NULL,
+  token_name_status VARCHAR(100) NOT NULL,
+  CONSTRAINT fk_token FOREIGN KEY(nft_id) REFERENCES tokens(id)
+);
+
+CREATE TABLE users(
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(255) NOT NULL,
+  password VARCHAR(255) NOT NULL
 );
