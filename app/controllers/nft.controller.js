@@ -150,6 +150,14 @@ exports.revealNft = async (req, res) => {
 
     console.log(`Start changing metadata for NFT ${tokenAddress}`);
 
+    // Select all possible tokens from collection
+    let collectionImagePath;
+    if (collection === 'Woodland Respite') {
+      collectionImagePath = 'woodland-respite';
+    } else if (collection === 'Dawn of Man') {
+      collectionImagePath = 'dawn-of-man';
+    }
+
     const metadata = {
       name: oldMetadata?.name,
       symbol: oldMetadata?.symbol,
@@ -159,10 +167,10 @@ exports.revealNft = async (req, res) => {
         process.env.NODE_ENV === 'development'
           ? `${
               process.env.LOCAL_ADDRESS
-            }/metadata/woodland-respite-${heroTier.toLowerCase()}.png`
+            }/metadata/${collectionImagePath}-${heroTier.toLowerCase()}.png`
           : `${
               process.env.SERVER_ADDRESS
-            }/api/metadata/woodland-respite-${heroTier.toLowerCase()}.png`
+            }/api/metadata/${collectionImagePath}-${heroTier.toLowerCase()}.png`
       }`,
       external_url: `${process.env.WEBSITE_URL}`,
       stat_points: statPoints,
@@ -181,10 +189,10 @@ exports.revealNft = async (req, res) => {
               process.env.NODE_ENV === 'development'
                 ? `${
                     process.env.LOCAL_ADDRESS
-                  }/metadata/woodland-respite-${heroTier.toLowerCase()}.png`
+                  }/metadata/${collectionImagePath}-${heroTier.toLowerCase()}.png`
                 : `${
                     process.env.SERVER_ADDRESS
-                  }/api/metadata/woodland-respite-${heroTier.toLowerCase()}.png`
+                  }/api/metadata/${collectionImagePath}-${heroTier.toLowerCase()}.png`
             }`,
             type: 'image/png',
           },
