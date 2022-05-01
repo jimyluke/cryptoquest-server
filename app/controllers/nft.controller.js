@@ -54,7 +54,7 @@ exports.checkIsTokenNameUnique = async (req, res) => {
 // Reveal Nft
 exports.revealNft = async (req, res) => {
   try {
-    const { tokenAddress, metadataUri } = req.body;
+    const { tokenAddress, metadataUri, mintName, mintNumber } = req.body;
 
     let oldMetadata;
     try {
@@ -230,10 +230,12 @@ exports.revealNft = async (req, res) => {
     }
 
     await pool.query(
-      'INSERT INTO tokens (token_address, collection, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      'INSERT INTO tokens (token_address, mint_name, collection, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
       [
         tokenAddress,
+        mintName,
         collection,
+        mintNumber,
         tokenNumber,
         statPoints,
         cosmeticPoints,

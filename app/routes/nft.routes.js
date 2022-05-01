@@ -1,5 +1,9 @@
 const controller = require('../controllers/nft.controller');
-const { verifySignature, verifyToken } = require('../middleware');
+const {
+  verifySignature,
+  verifyJWTToken,
+  verifyIsWalletOwnsNft,
+} = require('../middleware');
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -17,24 +21,40 @@ module.exports = function (app) {
   app.post('/api/checkIsTokenNameUnique', controller.checkIsTokenNameUnique);
 
   // Reveal nft
-  app.post('/api/reveal', verifySignature, controller.revealNft);
+  app.post(
+    '/api/reveal',
+    [verifySignature, verifyIsWalletOwnsNft],
+    controller.revealNft
+  );
 
   // Customize nft
-  app.post('/api/customize', verifySignature, controller.customizeNft);
+  app.post(
+    '/api/customize',
+    [verifySignature, verifyIsWalletOwnsNft],
+    controller.customizeNft
+  );
 
   // Load list of token names
-  app.get('/api/tokenNames', verifyToken, controller.loadTokenNames);
+  app.get('/api/tokenNames', verifyJWTToken, controller.loadTokenNames);
 
   // Load single token name
   app.get(
     '/api/tokenNames/:tokenNameId',
-    verifyToken,
+    verifyJWTToken,
     controller.loadTokenName
   );
 
   // Approve token name
-  app.post('/api/tokenNames/approve', verifyToken, controller.approveTokenName);
+  app.post(
+    '/api/tokenNames/approve',
+    verifyJWTToken,
+    controller.approveTokenName
+  );
 
   // Reject token name
-  app.post('/api/tokenNames/reject', verifyToken, controller.rejectTokenName);
+  app.post(
+    '/api/tokenNames/reject',
+    verifyJWTToken,
+    controller.rejectTokenName
+  );
 };

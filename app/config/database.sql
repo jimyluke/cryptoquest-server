@@ -1,17 +1,38 @@
+-- Create database for all "CryptoQuest" tables
 CREATE DATABASE cryptoquest;
 
+-- Create function for trigger update timestamp
+CREATE FUNCTION trigger_set_timestamp() RETURNS TRIGGER AS $ $ BEGIN NEW.updated_at = NOW();
+
+RETURN NEW;
+
+END;
+
+$ $ LANGUAGE plpgsql;
+
+-- All NFT tokens after revealing
 CREATE TABLE tokens(
   id SERIAL PRIMARY KEY,
-  token_address VARCHAR(100) NOT NULL,
+  token_address VARCHAR(255) NOT NULL,
+  mint_name VARCHAR(255) NOT NULL,
   collection VARCHAR(100) NOT NULL,
+  mint_number INT NOT NULL,
   token_number INT NOT NULL,
   stat_points INT NOT NULL,
   cosmetic_points INT NOT NULL,
-  stat_tier VARCHAR(50) NOT NULL,
-  cosmetic_tier VARCHAR(50) NOT NULL,
-  hero_tier VARCHAR(50) NOT NULL
+  stat_tier VARCHAR(100) NOT NULL,
+  cosmetic_tier VARCHAR(100) NOT NULL,
+  hero_tier VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Create trigger "updated_at" for "tokens" table
+CREATE TRIGGER set_timestamp BEFORE
+UPDATE
+  ON tokens FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- NFT characters data after customization
 CREATE TABLE characters(
   id SERIAL PRIMARY KEY,
   nft_id INT NOT NULL,
@@ -37,41 +58,78 @@ CREATE TABLE characters(
   scar VARCHAR(100) NOT NULL,
   tattoo VARCHAR(100) NOT NULL,
   background VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
   CONSTRAINT fk_token FOREIGN KEY(nft_id) REFERENCES tokens(id)
 );
 
-CREATE TABLE woodland_respite(
-  id SERIAL PRIMARY KEY,
-  token_number INT NOT NULL,
-  cosmetic_points INT NOT NULL,
-  stat_points INT NOT NULL,
-  ht_points_cp NUMERIC(7, 3) NOT NULL,
-  ht_points_sp NUMERIC(7, 3) NOT NULL,
-  ht_points_total NUMERIC(7, 3) NOT NULL,
-  hero_tier VARCHAR(50) NOT NULL
-);
+-- Create trigger "updated_at" for "characters" table
+CREATE TRIGGER set_timestamp BEFORE
+UPDATE
+  ON characters FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 
-CREATE TABLE dawn_of_man(
-  id SERIAL PRIMARY KEY,
-  token_number INT NOT NULL,
-  cosmetic_points INT NOT NULL,
-  stat_points INT NOT NULL,
-  ht_points_cp NUMERIC(7, 3) NOT NULL,
-  ht_points_sp NUMERIC(7, 3) NOT NULL,
-  ht_points_total NUMERIC(7, 3) NOT NULL,
-  hero_tier VARCHAR(50) NOT NULL
-);
-
+-- All NFT token names
 CREATE TABLE token_names(
   id SERIAL PRIMARY KEY,
   nft_id INT NOT NULL,
   token_name VARCHAR(100) NOT NULL,
   token_name_status VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
   CONSTRAINT fk_token FOREIGN KEY(nft_id) REFERENCES tokens(id)
 );
 
+-- Create trigger "updated_at" for "token_names" table
+CREATE TRIGGER set_timestamp BEFORE
+UPDATE
+  ON token_names FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- Shuffled tokens from "Woodland Respite" collection
+CREATE TABLE woodland_respite(
+  token_number INT PRIMARY KEY NOT NULL,
+  cosmetic_points INT NOT NULL,
+  stat_points INT NOT NULL,
+  ht_points_cp NUMERIC(7, 3) NOT NULL,
+  ht_points_sp NUMERIC(7, 3) NOT NULL,
+  ht_points_total NUMERIC(7, 3) NOT NULL,
+  hero_tier VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create trigger "updated_at" for "woodland_respite" table
+CREATE TRIGGER set_timestamp BEFORE
+UPDATE
+  ON woodland_respite FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- Shuffled tokens from "Dawn of Man" collection
+CREATE TABLE dawn_of_man(
+  token_number INT PRIMARY KEY NOT NULL,
+  cosmetic_points INT NOT NULL,
+  stat_points INT NOT NULL,
+  ht_points_cp NUMERIC(7, 3) NOT NULL,
+  ht_points_sp NUMERIC(7, 3) NOT NULL,
+  ht_points_total NUMERIC(7, 3) NOT NULL,
+  hero_tier VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create trigger "updated_at" for "dawn_of_man" table
+CREATE TRIGGER set_timestamp BEFORE
+UPDATE
+  ON dawn_of_man FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- Users with access to Admin UI for approving token names
 CREATE TABLE users(
   id SERIAL PRIMARY KEY,
   username VARCHAR(255) NOT NULL,
-  password VARCHAR(255) NOT NULL
+  password VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Create trigger "updated_at" for "users" table
+CREATE TRIGGER set_timestamp BEFORE
+UPDATE
+  ON users FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();

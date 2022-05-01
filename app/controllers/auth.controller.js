@@ -1,8 +1,10 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+
 const pool = require('../config/db.config');
 
+// Generate nonce for wallet signature on website
 exports.generateNonce = async (req, res) => {
   try {
     const nonce = crypto.randomBytes(32).toString('base64');
@@ -14,9 +16,10 @@ exports.generateNonce = async (req, res) => {
   }
 };
 
+// Send user data for login and sign in on Admin UI
 const sendUserData = async (user, res) => {
   const token = jwt.sign({ id: user.id }, process.env.TOKEN_SECRET, {
-    expiresIn: 86400, // 1 day
+    expiresIn: 86400, // JWT token expires after 1 day
   });
 
   res.status(200).send({
@@ -26,6 +29,7 @@ const sendUserData = async (user, res) => {
   });
 };
 
+// Sign in to Admin UI
 exports.signIn = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -54,6 +58,7 @@ exports.signIn = async (req, res) => {
   }
 };
 
+// Login to Admin UI using JWT token
 exports.login = async (req, res) => {
   try {
     const userData = await pool.query('SELECT * FROM users WHERE id = $1', [
@@ -71,6 +76,7 @@ exports.login = async (req, res) => {
   }
 };
 
+// Sign up to Admin UI (route commented out)
 exports.signUp = async (req, res) => {
   try {
     console.log(req.body);

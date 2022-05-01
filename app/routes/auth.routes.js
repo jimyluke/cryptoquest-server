@@ -1,5 +1,5 @@
 const controller = require('../controllers/auth.controller');
-const { verifyToken } = require('../middleware');
+const { verifyJWTToken } = require('../middleware');
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -11,15 +11,15 @@ module.exports = function (app) {
     next();
   });
 
-  // Generate nonce for Solana signature
-  app.get('/api/auth', controller.generateNonce);
+  // Generate nonce for wallet signature on website
+  app.get('/api/auth/nonce', controller.generateNonce);
 
-  // Sign up into Admin UI
-  app.post('/api/auth/signUp', controller.signUp);
+  // Sign up to Admin UI
+  // app.post('/api/auth/signUp', controller.signUp);
 
-  // Sign in into Admin UI
+  // Sign in to Admin UI
   app.post('/api/auth/signIn', controller.signIn);
 
-  // Login user by token into Admin UI
-  app.get('/api/auth/login', verifyToken, controller.login);
+  // Login to Admin UI using JWT token
+  app.get('/api/auth/login', verifyJWTToken, controller.login);
 };
