@@ -158,11 +158,26 @@ exports.revealNft = async (req, res) => {
       collectionImagePath = 'dawn-of-man';
     }
 
+    try {
+      const { stdout, stderr } = await exec(
+        `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
+          process.env.NODE_ENV === 'development'
+            ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
+            : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
+        }`
+      );
+
+      console.log('METABOSS STDOUT:', stdout);
+      if (stderr) console.log('METABOSS STDERR:', stderr);
+    } catch (error) {
+      res.status(404).send({
+        message: `Unable to change metadata, Solana blockchain unavailable, please try again later`,
+      });
+      return;
+    }
+
     const metadata = {
-      name: oldMetadata?.name,
-      symbol: oldMetadata?.symbol,
-      description: oldMetadata?.description,
-      seller_fee_basis_points: oldMetadata?.seller_fee_basis_points,
+      ...oldMetadata,
       image: `${
         process.env.NODE_ENV === 'development'
           ? `${
@@ -178,11 +193,8 @@ exports.revealNft = async (req, res) => {
       stat_tier: statTier,
       cosmetic_tier: cosmeticTier,
       hero_tier: heroTier,
-      collection: {
-        name: collection,
-        family: oldMetadata?.collection?.family,
-      },
       properties: {
+        ...oldMetadata?.properties,
         files: [
           {
             uri: `${
@@ -197,8 +209,6 @@ exports.revealNft = async (req, res) => {
             type: 'image/png',
           },
         ],
-        category: oldMetadata?.properties?.category,
-        creators: oldMetadata?.properties?.creators,
       },
     };
 
@@ -207,27 +217,6 @@ exports.revealNft = async (req, res) => {
       path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
       metadataJSON
     );
-
-    try {
-      const { stdout, stderr } = await exec(
-        `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
-          process.env.NODE_ENV === 'development'
-            ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
-            : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
-        }`
-      );
-
-      console.log('METABOSS STDOUT:', stdout);
-      if (stderr) console.log('METABOSS STDERR:', stderr);
-    } catch (error) {
-      fs.unlinkSync(
-        path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`)
-      );
-      res.status(404).send({
-        message: `Unable to change metadata, Solana blockchain unavailable, please try again later`,
-      });
-      return;
-    }
 
     await pool.query(
       'INSERT INTO tokens (token_address, mint_name, collection, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
@@ -332,56 +321,6 @@ exports.customizeNft = async (req, res) => {
       value: item[1],
     }));
 
-    const metadata = {
-      name: oldMetadata?.name,
-      symbol: oldMetadata?.symbol,
-      description: oldMetadata?.description,
-      seller_fee_basis_points: oldMetadata?.seller_fee_basis_points,
-      image: `${
-        process.env.NODE_ENV === 'development'
-          ? `${process.env.LOCAL_ADDRESS}/metadata/after_customization.png`
-          : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
-      }`,
-      external_url: `${process.env.WEBSITE_URL}`,
-      token_name_status: 'under_consideration',
-      stat_points: oldMetadata?.stat_points,
-      cosmetic_points: oldMetadata?.cosmetic_points,
-      stat_tier: oldMetadata?.stat_tier,
-      cosmetic_tier: oldMetadata?.cosmetic_tier,
-      hero_tier: oldMetadata?.hero_tier,
-      constitution: skills?.constitution,
-      strength: skills?.strength,
-      dexterity: skills?.dexterity,
-      wisdom: skills?.wisdom,
-      intelligence: skills?.intelligence,
-      charisma: skills?.charisma,
-      attributes,
-      collection: {
-        name: oldMetadata?.collection?.name,
-        family: oldMetadata?.collection?.family,
-      },
-      properties: {
-        files: [
-          {
-            uri: `${
-              process.env.NODE_ENV === 'development'
-                ? `${process.env.LOCAL_ADDRESS}/metadata/after_customization.png`
-                : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
-            }`,
-            type: 'image/png',
-          },
-        ],
-        category: oldMetadata?.properties?.category,
-        creators: oldMetadata?.properties?.creators,
-      },
-    };
-
-    const metadataJSON = JSON.stringify(metadata, null, 2);
-    fs.writeFileSync(
-      path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
-      metadataJSON
-    );
-
     try {
       const { stdout, stderr } = await exec(
         `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
@@ -394,21 +333,48 @@ exports.customizeNft = async (req, res) => {
       console.log('METABOSS STDOUT:', stdout);
       if (stderr) console.log('METABOSS STDERR:', stderr);
     } catch (error) {
-      const metadata = {
-        ...oldMetadata,
-      };
-
-      const metadataJSON = JSON.stringify(metadata, null, 2);
-      fs.writeFileSync(
-        path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
-        metadataJSON
-      );
-
       res.status(404).send({
         message: `Unable to change metadata, Solana blockchain unavailable, please try again later`,
       });
       return;
     }
+
+    const metadata = {
+      ...oldMetadata,
+      image: `${
+        process.env.NODE_ENV === 'development'
+          ? `${process.env.LOCAL_ADDRESS}/metadata/after_customization.png`
+          : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
+      }`,
+      external_url: `${process.env.WEBSITE_URL}`,
+      token_name_status: 'under_consideration',
+      constitution: skills?.constitution,
+      strength: skills?.strength,
+      dexterity: skills?.dexterity,
+      wisdom: skills?.wisdom,
+      intelligence: skills?.intelligence,
+      charisma: skills?.charisma,
+      attributes,
+      properties: {
+        ...oldMetadata?.properties,
+        files: [
+          {
+            uri: `${
+              process.env.NODE_ENV === 'development'
+                ? `${process.env.LOCAL_ADDRESS}/metadata/after_customization.png`
+                : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
+            }`,
+            type: 'image/png',
+          },
+        ],
+      },
+    };
+
+    const metadataJSON = JSON.stringify(metadata, null, 2);
+    fs.writeFileSync(
+      path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
+      metadataJSON
+    );
 
     await pool.query(
       'INSERT INTO token_names (nft_id, token_name, token_name_status) VALUES($1, $2, $3) RETURNING *',
@@ -459,7 +425,20 @@ exports.loadTokenNames = async (req, res) => {
       ['under_consideration']
     );
 
-    res.json(allTokenNames);
+    // eslint-disable-next-line no-undef
+    const allTokenNamesData = await Promise.all(
+      allTokenNames.map(async (tokenName) => {
+        const nftData = await pool.query('SELECT * FROM tokens WHERE id = $1', [
+          tokenName?.nft_id,
+        ]);
+
+        const { token_address, mint_name } = nftData.rows[0];
+
+        return { ...tokenName, token_address, mint_name };
+      })
+    );
+
+    res.json(allTokenNamesData);
   } catch (error) {
     console.error(error.message);
   }
@@ -529,21 +508,6 @@ const handleTokenNameStatusChange = async (req, res, tokenNameId, status) => {
     return;
   }
 
-  const metadata = {
-    ...oldMetadata,
-    ...(status === 'approved'
-      ? { name: tokenName, token_name_status: 'approved' }
-      : status === 'rejected'
-      ? { token_name_status: 'rejected' }
-      : {}),
-  };
-
-  const metadataJSON = JSON.stringify(metadata, null, 2);
-  fs.writeFileSync(
-    path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
-    metadataJSON
-  );
-
   try {
     const { stdout, stderr } = await exec(
       `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
@@ -556,21 +520,26 @@ const handleTokenNameStatusChange = async (req, res, tokenNameId, status) => {
     console.log('METABOSS STDOUT:', stdout);
     if (stderr) console.log('METABOSS STDERR:', stderr);
   } catch (error) {
-    const metadata = {
-      ...oldMetadata,
-    };
-
-    const metadataJSON = JSON.stringify(metadata, null, 2);
-    fs.writeFileSync(
-      path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
-      metadataJSON
-    );
-
     res.status(404).send({
       message: `Unable to change metadata, Solana blockchain unavailable, please try again later`,
     });
     return;
   }
+
+  const metadata = {
+    ...oldMetadata,
+    ...(status === 'approved'
+      ? { token_name: tokenName, token_name_status: 'approved' }
+      : status === 'rejected'
+      ? { token_name_status: 'rejected' }
+      : {}),
+  };
+
+  const metadataJSON = JSON.stringify(metadata, null, 2);
+  fs.writeFileSync(
+    path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
+    metadataJSON
+  );
 
   return tokenName;
 };
@@ -593,7 +562,7 @@ exports.approveTokenName = async (req, res) => {
       ['approved', tokenNameId]
     );
     res.status(200).send({
-      message: `Token name ${tokenName} successfully approved`,
+      message: `Token name "${tokenName}" successfully approved`,
     });
   } catch (error) {
     console.error(error.message);
@@ -615,7 +584,24 @@ exports.rejectTokenName = async (req, res) => {
 
     await pool.query('DELETE FROM token_names WHERE id = $1', [tokenNameId]);
     res.status(200).send({
-      message: `Token name ${tokenName} successfully rejected`,
+      message: `Token name "${tokenName}" successfully rejected`,
+    });
+  } catch (error) {
+    console.error(error.message);
+  }
+};
+
+exports.editTokenName = async (req, res) => {
+  try {
+    const { tokenName, tokenNameId } = req.body;
+
+    await pool.query('UPDATE token_names SET token_name = $1 WHERE id = $2', [
+      tokenName,
+      tokenNameId,
+    ]);
+
+    res.status(200).send({
+      message: `Token name "${tokenName}" successfully updated`,
     });
   } catch (error) {
     console.error(error.message);

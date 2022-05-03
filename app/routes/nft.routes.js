@@ -57,4 +57,7 @@ module.exports = function (app) {
     verifyJWTToken,
     controller.rejectTokenName
   );
+
+  // Edit token name
+  app.post('/api/tokenNames/edit', verifyJWTToken, controller.editTokenName);
 };
