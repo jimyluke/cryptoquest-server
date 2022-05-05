@@ -37,14 +37,23 @@ exports.checkIsTokenNameUnique = async (req, res) => {
     const { tokenName } = req.body;
     const tokenNameLower = tokenName.trim().toLowerCase();
 
+    const rejectedTokenNames = await pool.query(
+      'SELECT * FROM token_names WHERE token_name_status = $1',
+      ['rejected']
+    );
+    const rejectedTokenNamesLower = rejectedTokenNames.rows.map((item) =>
+      item.token_name.toLowerCase()
+    );
+    const isTokenNameRejected =
+      rejectedTokenNamesLower.includes(tokenNameLower);
+
     const tokenNames = await pool.query('SELECT * FROM token_names');
     const tokenNamesLower = tokenNames.rows.map((item) =>
       item.token_name.toLowerCase()
     );
-
     const isTokenNameExist = tokenNamesLower.includes(tokenNameLower);
 
-    res.status(200).send({ isTokenNameExist });
+    res.status(200).send({ isTokenNameExist, isTokenNameRejected });
   } catch (error) {
     console.log(error.message);
     res.status(404).send(error.message);
@@ -262,10 +271,19 @@ exports.customizeNft = async (req, res) => {
       metadataUri,
     } = req.body;
 
-    const { data: oldMetadata } = await axios.get(metadataUri);
+    let oldMetadata;
+    try {
+      const { data } = await axios.get(metadataUri);
+      oldMetadata = data;
+    } catch (error) {
+      res.status(404).send({
+        message: `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`,
+      });
+      return;
+    }
 
     if (!oldMetadata) {
-      res.status(400).send({
+      res.status(404).send({
         message: `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`,
       });
       return;
@@ -347,7 +365,7 @@ exports.customizeNft = async (req, res) => {
           : `${process.env.SERVER_ADDRESS}/api/metadata/after_customization.png`
       }`,
       external_url: `${process.env.WEBSITE_URL}`,
-      token_name_status: 'under_consideration',
+      token_name: tokenName,
       constitution: skills?.constitution,
       strength: skills?.strength,
       dexterity: skills?.dexterity,
@@ -378,7 +396,7 @@ exports.customizeNft = async (req, res) => {
 
     await pool.query(
       'INSERT INTO token_names (nft_id, token_name, token_name_status) VALUES($1, $2, $3) RETURNING *',
-      [currentNft.id, tokenName, 'under_consideration']
+      [currentNft.id, tokenName, 'approved']
     );
 
     await pool.query(
@@ -421,8 +439,7 @@ exports.customizeNft = async (req, res) => {
 exports.loadTokenNames = async (req, res) => {
   try {
     const { rows: allTokenNames } = await pool.query(
-      'SELECT * FROM token_names WHERE token_name_status = $1',
-      ['under_consideration']
+      'SELECT * FROM token_names'
     );
 
     // eslint-disable-next-line no-undef
@@ -439,18 +456,6 @@ exports.loadTokenNames = async (req, res) => {
     );
 
     res.json(allTokenNamesData);
-  } catch (error) {
-    console.error(error.message);
-  }
-};
-
-exports.loadTokenName = async (req, res) => {
-  try {
-    const { tokenNameId } = req.params;
-    const tokenNames = await pool.query(
-      `SELECT * FROM token_names WHERE id = ${tokenNameId}`
-    );
-    res.json(tokenNames.rows[0]);
   } catch (error) {
     console.error(error.message);
   }
@@ -487,7 +492,7 @@ const handleTokenNameStatusChange = async (req, res, tokenNameId, status) => {
 
   let oldMetadata;
   try {
-    // TODO:
+    // TODO: change for uri from metadata
     const { data } = await axios.get(
       process.env.NODE_ENV === 'development'
         ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
@@ -529,9 +534,9 @@ const handleTokenNameStatusChange = async (req, res, tokenNameId, status) => {
   const metadata = {
     ...oldMetadata,
     ...(status === 'approved'
-      ? { token_name: tokenName, token_name_status: 'approved' }
+      ? { token_name: tokenName }
       : status === 'rejected'
-      ? { token_name_status: 'rejected' }
+      ? { token_name: 'NAME PENDING' }
       : {}),
   };
 
@@ -582,7 +587,10 @@ exports.rejectTokenName = async (req, res) => {
 
     if (!tokenName || res.statusCode === 404) return;
 
-    await pool.query('DELETE FROM token_names WHERE id = $1', [tokenNameId]);
+    await pool.query(
+      'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
+      ['rejected', tokenNameId]
+    );
     res.status(200).send({
       message: `Token name "${tokenName}" successfully rejected`,
     });
@@ -600,9 +608,157 @@ exports.editTokenName = async (req, res) => {
       tokenNameId,
     ]);
 
+    await handleTokenNameStatusChange(req, res, tokenNameId, 'approved');
+
+    await pool.query(
+      'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
+      ['approved', tokenNameId]
+    );
+
     res.status(200).send({
       message: `Token name "${tokenName}" successfully updated`,
     });
+  } catch (error) {
+    console.error(error.message);
+  }
+};
+
+exports.deleteTokenName = async (req, res) => {
+  try {
+    const { tokenNameId } = req.body;
+
+    const tokenNameData = await pool.query(
+      'SELECT * FROM token_names WHERE id = $1',
+      [tokenNameId]
+    );
+
+    if (!tokenNameData.rows[0]) {
+      res.status(404).send({
+        message: `There is no token name with id ${tokenNameId}`,
+      });
+      return;
+    }
+
+    const tokenName = tokenNameData.rows[0].token_name;
+
+    await pool.query('DELETE FROM token_names WHERE id = $1', [tokenNameId]);
+    res.status(200).send({
+      message: `Token name "${tokenName}" successfully deleted`,
+    });
+  } catch (error) {
+    console.error(error.message);
+  }
+};
+
+exports.renameTokenName = async (req, res) => {
+  try {
+    const { tokenName, tokenAddress } = req.body;
+
+    const currentNftQuery = await pool.query(
+      'SELECT * FROM tokens WHERE token_address = $1',
+      [tokenAddress]
+    );
+
+    const currentNft = currentNftQuery.rows[0];
+
+    if (!currentNft) {
+      throw new Error(
+        `NFT ${tokenAddress.slice(0, 8)}... has not been revealed`
+      );
+    }
+
+    const isTokenAddressExistQuery = await pool.query(
+      'SELECT EXISTS(SELECT * FROM characters WHERE nft_id = $1)',
+      [currentNft.id]
+    );
+
+    const isTokenAddressExist = isTokenAddressExistQuery.rows[0].exists;
+
+    if (!isTokenAddressExist) {
+      throw new Error(
+        `NFT ${tokenAddress.slice(0, 8)}... has not been customized`
+      );
+    }
+
+    const tokenNameData = await pool.query(
+      'SELECT * FROM token_names WHERE nft_id = $1',
+      [currentNft.id]
+    );
+
+    const tokenNamesStatuses = tokenNameData.rows.map(
+      (tokenName) => tokenName?.token_name_status
+    );
+
+    const validStatuses = ['approved', 'under_consideration'];
+
+    const isValidTokenNameExists = validStatuses.some((elem) =>
+      tokenNamesStatuses.includes(elem)
+    );
+
+    if (isValidTokenNameExists) {
+      res.status(404).send({
+        message: `Token name for NFT ${tokenAddress.slice(
+          0,
+          8
+        )}... is not possible to change`,
+      });
+      return;
+    }
+
+    await pool.query(
+      'INSERT INTO token_names (nft_id, token_name, token_name_status) VALUES($1, $2, $3) RETURNING *',
+      [currentNft.id, tokenName, 'under_consideration']
+    );
+
+    res.status(200).send({
+      message: `Character name "${tokenName}" was successfully submitted for verification`,
+    });
+  } catch (error) {
+    console.error(error.message);
+  }
+};
+
+exports.fetchLastTokenName = async (req, res) => {
+  try {
+    const { tokenAddress } = req.body;
+
+    const currentNftQuery = await pool.query(
+      'SELECT * FROM tokens WHERE token_address = $1',
+      [tokenAddress]
+    );
+
+    const currentNft = currentNftQuery.rows[0];
+
+    if (!currentNft) {
+      res.status(200).send({ token_name_status: null });
+      return;
+    }
+
+    const isTokenAddressExistQuery = await pool.query(
+      'SELECT EXISTS(SELECT * FROM characters WHERE nft_id = $1)',
+      [currentNft.id]
+    );
+
+    const isTokenAddressExist = isTokenAddressExistQuery.rows[0].exists;
+
+    if (!isTokenAddressExist) {
+      res.status(200).send({ token_name_status: null });
+      return;
+    }
+
+    const tokenNameData = await pool.query(
+      'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
+      [currentNft.id]
+    );
+
+    if (!tokenNameData || tokenNameData.rows.length === 0) {
+      res.status(200).send({ token_name_status: null });
+      return;
+    }
+
+    const tokenNameStatus = tokenNameData.rows[0]?.token_name_status;
+
+    res.status(200).send({ token_name_status: tokenNameStatus });
   } catch (error) {
     console.error(error.message);
   }

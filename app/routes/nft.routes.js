@@ -37,13 +37,6 @@ module.exports = function (app) {
   // Load list of token names
   app.get('/api/tokenNames', verifyJWTToken, controller.loadTokenNames);
 
-  // Load single token name
-  app.get(
-    '/api/tokenNames/:tokenNameId',
-    verifyJWTToken,
-    controller.loadTokenName
-  );
-
   // Approve token name
   app.post(
     '/api/tokenNames/approve',
@@ -60,4 +53,17 @@ module.exports = function (app) {
 
   // Edit token name
   app.post('/api/tokenNames/edit', verifyJWTToken, controller.editTokenName);
+
+  // Reject token name
+  app.post(
+    '/api/tokenNames/delete',
+    verifyJWTToken,
+    controller.deleteTokenName
+  );
+
+  // Rename token name
+  app.post('/api/tokenNames/rename', controller.renameTokenName);
+
+  // Fetch last nft name
+  app.post('/api/tokenNames/fetchLast', controller.fetchLastTokenName);
 };
