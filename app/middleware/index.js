@@ -40,9 +40,10 @@ exports.verifyIsWalletOwnsNft = async (req, res, next) => {
     const { publicKey, tokenAddress } = req.body;
 
     const clusterUrl =
-      process.env.NODE_ENV === 'development'
+      process.env.NODE_ENV === 'development' // TODO: FIX FOR PRODUCTION
         ? process.env.DEVNET_CLUSTER_URL
-        : process.env.MAINNET_CLUSTER_URL;
+        : process.env.DEVNET_CLUSTER_URL;
+    // : process.env.MAINNET_CLUSTER_URL;
 
     const connection = new Connection(clusterUrl);
 
