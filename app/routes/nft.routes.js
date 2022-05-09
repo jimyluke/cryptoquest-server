@@ -15,7 +15,7 @@ module.exports = function (app) {
   });
 
   // Check is nft unique
-  app.post('/api/checkIsNftUnique', controller.checkIsNftUnique);
+  app.post('/api/checkIsTokenIdUnique', controller.checkIsTokenIdUnique);
 
   // Check is token name unique
   app.post('/api/checkIsTokenNameUnique', controller.checkIsTokenNameUnique);

@@ -13,7 +13,7 @@ const { randomInteger } = require('../utils/randomInteger');
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
 
 // Check is nft unique
-exports.checkIsNftUnique = async (req, res) => {
+exports.checkIsTokenIdUnique = async (req, res) => {
   try {
     const { tokenId } = req.body;
 
@@ -757,6 +757,11 @@ exports.fetchLastTokenName = async (req, res) => {
     }
 
     const tokenNameStatus = tokenNameData.rows[0]?.token_name_status;
+
+    if (!tokenNameStatus) {
+      res.status(200).send({ token_name_status: null });
+      return;
+    }
 
     res.status(200).send({ token_name_status: tokenNameStatus });
   } catch (error) {
