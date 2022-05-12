@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
+const retry = require('async-retry');
 const { TOKEN_PROGRAM_ID } = require('@solana/spl-token');
-const { Connection } = require('@solana/web3.js');
+
+const { getSolanaConnection } = require('../utils/solana');
 
 // Verify wallet signature from website
 exports.verifySignature = async (req, res, next) => {
@@ -39,36 +41,36 @@ exports.verifyIsWalletOwnsNft = async (req, res, next) => {
   try {
     const { publicKey, tokenAddress } = req.body;
 
-    const clusterUrl =
-      process.env.NODE_ENV === 'development' // TODO: FIX FOR PRODUCTION
-        ? process.env.DEVNET_CLUSTER_URL
-        : process.env.DEVNET_CLUSTER_URL;
-    // : process.env.MAINNET_CLUSTER_URL;
-
-    const connection = new Connection(clusterUrl);
+    const connection = await getSolanaConnection();
 
     let result;
-
     try {
-      result = await connection.getParsedProgramAccounts(TOKEN_PROGRAM_ID, {
-        filters: [
-          {
-            dataSize: 165,
-          },
-          {
-            memcmp: {
-              offset: 0,
-              bytes: tokenAddress,
-            },
-          },
-          {
-            memcmp: {
-              offset: 32,
-              bytes: publicKey,
-            },
-          },
-        ],
-      });
+      result = await retry(
+        async () => {
+          return await connection.getParsedProgramAccounts(TOKEN_PROGRAM_ID, {
+            filters: [
+              {
+                dataSize: 165,
+              },
+              {
+                memcmp: {
+                  offset: 0,
+                  bytes: tokenAddress,
+                },
+              },
+              {
+                memcmp: {
+                  offset: 32,
+                  bytes: publicKey,
+                },
+              },
+            ],
+          });
+        },
+        {
+          retries: 5,
+        }
+      );
     } catch (error) {
       res.status(503).send({
         message: `Solana blockchain unavailable, please try again later`,
@@ -76,7 +78,15 @@ exports.verifyIsWalletOwnsNft = async (req, res, next) => {
       return;
     }
 
-    if (!result || result.length === 0) {
+    const accountInfo = result?.[0]?.account?.data?.parsed?.info;
+
+    if (
+      !result ||
+      result.length === 0 ||
+      !accountInfo ||
+      accountInfo?.owner !== publicKey ||
+      parseInt(accountInfo?.tokenAmount?.amount) <= 0
+    ) {
       return res.status(401).send({
         message: `You are not owner of NFT ${tokenAddress.slice(0, 8)}...`,
       });

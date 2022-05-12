@@ -13,9 +13,9 @@ $ $ LANGUAGE plpgsql;
 -- All NFT tokens after revealing
 CREATE TABLE tokens(
   id SERIAL PRIMARY KEY,
-  token_address VARCHAR(255) NOT NULL,
+  token_address VARCHAR(255) NOT NULL UNIQUE,
   mint_name VARCHAR(255) NOT NULL,
-  collection VARCHAR(100) NOT NULL,
+  recipe VARCHAR(100) NOT NULL,
   mint_number INT NOT NULL,
   token_number INT NOT NULL,
   stat_points INT NOT NULL,
@@ -84,7 +84,7 @@ CREATE TRIGGER set_timestamp BEFORE
 UPDATE
   ON token_names FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 
--- Shuffled tokens from "Woodland Respite" collection
+-- Shuffled tokens from "Woodland Respite" recipe
 CREATE TABLE woodland_respite(
   token_number INT PRIMARY KEY NOT NULL,
   cosmetic_points INT NOT NULL,
@@ -102,7 +102,7 @@ CREATE TRIGGER set_timestamp BEFORE
 UPDATE
   ON woodland_respite FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 
--- Shuffled tokens from "Dawn of Man" collection
+-- Shuffled tokens from "Dawn of Man" recipe
 CREATE TABLE dawn_of_man(
   token_number INT PRIMARY KEY NOT NULL,
   cosmetic_points INT NOT NULL,
@@ -133,3 +133,22 @@ CREATE TABLE users(
 CREATE TRIGGER set_timestamp BEFORE
 UPDATE
   ON users FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- Links to the metadata for nfts
+CREATE TABLE metadata(
+  id SERIAL PRIMARY KEY,
+  nft_id INT NOT NULL,
+  stage VARCHAR(255) NOT NULL,
+  metadata_url_ipfs VARCHAR(255) NOT NULL,
+  image_url_ipfs VARCHAR(255) NOT NULL,
+  metadata_url_server VARCHAR(255) NOT NULL,
+  image_url_server VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT fk_token FOREIGN KEY(nft_id) REFERENCES tokens(id)
+);
+
+-- Create trigger "updated_at" for "metadata" table
+CREATE TRIGGER set_timestamp BEFORE
+UPDATE
+  ON metadata FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();

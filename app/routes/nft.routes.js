@@ -1,9 +1,5 @@
 const controller = require('../controllers/nft.controller');
-const {
-  verifySignature,
-  verifyJWTToken,
-  verifyIsWalletOwnsNft,
-} = require('../middleware');
+const { verifySignature, verifyIsWalletOwnsNft } = require('../middleware');
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -17,8 +13,8 @@ module.exports = function (app) {
   // Check is nft unique
   app.post('/api/checkIsTokenIdUnique', controller.checkIsTokenIdUnique);
 
-  // Check is token name unique
-  app.post('/api/checkIsTokenNameUnique', controller.checkIsTokenNameUnique);
+  // Load available recipes
+  app.get('/api/availableRecipes', controller.availableRecipes);
 
   // Reveal nft
   app.post(
@@ -33,37 +29,4 @@ module.exports = function (app) {
     [verifySignature, verifyIsWalletOwnsNft],
     controller.customizeNft
   );
-
-  // Load list of token names
-  app.get('/api/tokenNames', verifyJWTToken, controller.loadTokenNames);
-
-  // Approve token name
-  app.post(
-    '/api/tokenNames/approve',
-    verifyJWTToken,
-    controller.approveTokenName
-  );
-
-  // Reject token name
-  app.post(
-    '/api/tokenNames/reject',
-    verifyJWTToken,
-    controller.rejectTokenName
-  );
-
-  // Edit token name
-  app.post('/api/tokenNames/edit', verifyJWTToken, controller.editTokenName);
-
-  // Reject token name
-  app.post(
-    '/api/tokenNames/delete',
-    verifyJWTToken,
-    controller.deleteTokenName
-  );
-
-  // Rename token name
-  app.post('/api/tokenNames/rename', controller.renameTokenName);
-
-  // Fetch last nft name
-  app.post('/api/tokenNames/fetchLast', controller.fetchLastTokenName);
 };
