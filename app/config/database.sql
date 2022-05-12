@@ -139,10 +139,8 @@ CREATE TABLE metadata(
   id SERIAL PRIMARY KEY,
   nft_id INT NOT NULL,
   stage VARCHAR(255) NOT NULL,
-  metadata_url_ipfs VARCHAR(255) NOT NULL,
-  image_url_ipfs VARCHAR(255) NOT NULL,
-  metadata_url_server VARCHAR(255) NOT NULL,
-  image_url_server VARCHAR(255) NOT NULL,
+  metadata_url VARCHAR(255) NOT NULL,
+  image_url VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   CONSTRAINT fk_token FOREIGN KEY(nft_id) REFERENCES tokens(id)

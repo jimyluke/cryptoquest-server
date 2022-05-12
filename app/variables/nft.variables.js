@@ -47,3 +47,21 @@ exports.nftStages = {
   customized: 'customized',
   renamed: 'renamed',
 };
+
+exports.cosmeticTraitsMap = {
+  race: 'Race',
+  sex: 'Sex',
+  faceStyle: 'Face Style',
+  eyeDetail: 'Eye Detail',
+  eyes: 'Eyes',
+  facialHair: 'Facial Hair',
+  glasses: 'Glasses',
+  hairStyle: 'Hair Style',
+  hairColor: 'Hair Color',
+  necklace: 'Necklace',
+  earring: 'Earring',
+  nosePiercing: 'Nose Piercing',
+  scar: 'Scar',
+  tattoo: 'Tattoo',
+  background: 'Background',
+};

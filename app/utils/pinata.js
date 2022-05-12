@@ -1,182 +1,111 @@
 const fs = require('fs');
-const path = require('path');
 const FormData = require('form-data');
 const axios = require('axios');
+const retry = require('async-retry');
 
 const { sleep } = require('./sleep');
-const {
-  nftStages,
-  heroTierRecipes,
-  heroTierImagesIpfsUrls,
-} = require('../variables/nft.variables');
 
-const setImageUrlManifest = (manifestString, imageLink) => {
-  const manifest = JSON.parse(manifestString);
-  const originalImage = manifest.image;
-  manifest.image = imageLink;
-  manifest.properties.files.forEach((file) => {
-    if (file.uri === originalImage) file.uri = imageLink;
-  });
-
-  return manifest;
+exports.extractHashFromIpfsUrl = (ipfsUrl) => {
+  return ipfsUrl.split('ipfs/').pop().split('?')[0];
 };
 
-const uploadJson = async (manifestJson, pinataApiKey, pinataSecretApiKey) => {
-  const data = {
-    pinataMetadata: {
-      name: 'Ali',
-      keyvalues: {
-        tokenAddress: 'AliKey',
-      },
-    },
-
-    pinataContent: manifestJson,
-  };
-
-  const { data: responseData } = await axios.post(
-    `https://api.pinata.cloud/pinning/pinJSONToIPFS`,
-    data,
-    {
-      maxBodyLength: 'Infinity',
-      headers: {
-        pinata_api_key: pinataApiKey,
-        pinata_secret_api_key: pinataSecretApiKey,
-      },
-    }
-  );
-  console.log(responseData.IpfsHash);
-  return responseData.IpfsHash;
-};
-
-const uploadMedia = async (media, pinataApiKey, pinataSecretApiKey) => {
-  const data = new FormData();
-  data.append('file', fs.createReadStream(media));
-
-  const metadata = JSON.stringify({
-    name: 'testname',
-    keyvalues: {
-      exampleKey: 'exampleValue',
-    },
-  });
-  data.append('pinataMetadata', metadata);
-
-  const { data: responseData } = await axios.post(
-    `https://api.pinata.cloud/pinning/pinFileToIPFS`,
-    data,
-    {
-      maxBodyLength: 'Infinity',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
-        pinata_api_key: pinataApiKey,
-        pinata_secret_api_key: pinataSecretApiKey,
-      },
-    }
-  );
-  console.log(responseData.IpfsHash);
-  return responseData.IpfsHash;
-};
-
-const pinataUpload = async (
-  stage,
-  image,
-  manifestBuffer,
+exports.uploadJson = async (
   pinataApiKey,
   pinataSecretApiKey,
   gateway,
-  heroTierImagePath
+  metadata,
+  tokenAddress,
+  stage
 ) => {
-  const gatewayUrl = gateway ? gateway : `https://ipfs.io`;
+  return await retry(
+    async () => {
+      const gatewayUrl = gateway ? gateway : `https://ipfs.io`;
 
-  let mediaUrl;
+      const requestBody = {
+        pinataMetadata: {
+          name: `${tokenAddress}-${stage}`,
+          keyvalues: {
+            tokenAddress: tokenAddress,
+            stage: stage,
+          },
+        },
 
-  if (stage === nftStages.revealed) {
-    if (heroTierImagePath === heroTierRecipes.dawnOfManCommon) {
-      mediaUrl = heroTierImagesIpfsUrls.dawnOfManCommon;
-    } else if (heroTierImagePath === heroTierRecipes.dawnOfManUncommon) {
-      mediaUrl = heroTierImagesIpfsUrls.dawnOfManUncommon;
-    } else if (heroTierImagePath === heroTierRecipes.dawnOfManRare) {
-      mediaUrl = heroTierImagesIpfsUrls.dawnOfManRare;
-    } else if (heroTierImagePath === heroTierRecipes.dawnOfManEpic) {
-      mediaUrl = heroTierImagesIpfsUrls.dawnOfManEpic;
-    } else if (heroTierImagePath === heroTierRecipes.dawnOfManLegendary) {
-      mediaUrl = heroTierImagesIpfsUrls.dawnOfManLegendary;
-    } else if (heroTierImagePath === heroTierRecipes.dawnOfManMythic) {
-      mediaUrl = heroTierImagesIpfsUrls.dawnOfManMythic;
-    } else if (heroTierImagePath === heroTierRecipes.woodlandRespiteCommon) {
-      mediaUrl = heroTierImagesIpfsUrls.woodlandRespiteCommon;
-    } else if (heroTierImagePath === heroTierRecipes.woodlandRespiteUncommon) {
-      mediaUrl = heroTierImagesIpfsUrls.woodlandRespiteUncommon;
-    } else if (heroTierImagePath === heroTierRecipes.woodlandRespiteRare) {
-      mediaUrl = heroTierImagesIpfsUrls.woodlandRespiteRare;
-    } else if (heroTierImagePath === heroTierRecipes.woodlandRespiteEpic) {
-      mediaUrl = heroTierImagesIpfsUrls.woodlandRespiteEpic;
-    } else if (heroTierImagePath === heroTierRecipes.woodlandRespiteLegendary) {
-      mediaUrl = heroTierImagesIpfsUrls.woodlandRespiteLegendary;
-    } else if (heroTierImagePath === heroTierRecipes.woodlandRespiteMythic) {
-      mediaUrl = heroTierImagesIpfsUrls.woodlandRespiteMythic;
+        pinataContent: metadata,
+      };
+
+      const {
+        data: { IpfsHash },
+      } = await axios.post(
+        `https://api.pinata.cloud/pinning/pinJSONToIPFS`,
+        requestBody,
+        {
+          maxBodyLength: 'Infinity',
+          headers: {
+            pinata_api_key: pinataApiKey,
+            pinata_secret_api_key: pinataSecretApiKey,
+          },
+        }
+      );
+      await sleep(500);
+
+      return {
+        metadataIpfsHash: IpfsHash,
+        metadataIpfsUrl: `${gatewayUrl}/ipfs/${IpfsHash}`,
+      };
+    },
+    {
+      retries: 5,
     }
-  } else {
-    const imageCid = await uploadMedia(image, pinataApiKey, pinataSecretApiKey);
-    console.log('uploaded image: ', `${gatewayUrl}/ipfs/${imageCid}`);
-    await sleep(500);
-
-    mediaUrl = `${gatewayUrl}/ipfs/${imageCid}`;
-  }
-
-  const manifestJson = await setImageUrlManifest(
-    manifestBuffer.toString('utf8'),
-    mediaUrl
   );
-
-  const metadataCid = await uploadJson(
-    manifestJson,
-    pinataApiKey,
-    pinataSecretApiKey
-  );
-
-  await sleep(500);
-
-  const link = `${gatewayUrl}/ipfs/${metadataCid}`;
-  console.log('uploaded manifest: ', link);
-
-  return [link, mediaUrl];
 };
 
-exports.uploadIPFS = async (
-  stage, // TODO: use stages
+exports.uploadImage = async (
   pinataApiKey,
   pinataSecretApiKey,
-  pinataGateway,
-  assetName,
-  heroTierImagePath
+  gateway,
+  image,
+  tokenAddress
 ) => {
-  const dirname = path.resolve(__dirname, `../../../metadata`); // TODO: fix it
+  return await retry(
+    async () => {
+      const gatewayUrl = gateway ? gateway : `https://ipfs.io`;
 
-  const manifestPath = path.join(dirname, `${assetName}.json`);
+      const formData = new FormData();
+      formData.append('file', fs.createReadStream(image));
 
-  const manifest = JSON.parse(fs.readFileSync(manifestPath).toString());
+      const pinataMetadata = JSON.stringify({
+        name: tokenAddress,
+        keyvalues: {
+          tokenAddress: tokenAddress,
+        },
+      });
+      formData.append('pinataMetadata', pinataMetadata);
 
-  let imagePath;
-  if (heroTierImagePath) {
-    imagePath = heroTierImagePath;
-  } else {
-    imagePath = assetName;
-  }
-  const image = path.join(dirname, `${imagePath}.png`);
+      const {
+        data: { IpfsHash },
+      } = await axios.post(
+        `https://api.pinata.cloud/pinning/pinFileToIPFS`,
+        formData,
+        {
+          maxBodyLength: 'Infinity',
+          headers: {
+            'Content-Type': `multipart/form-data; boundary=${formData._boundary}`,
+            pinata_api_key: pinataApiKey,
+            pinata_secret_api_key: pinataSecretApiKey,
+          },
+        }
+      );
+      await sleep(500);
 
-  const manifestBuffer = Buffer.from(JSON.stringify(manifest));
-
-  const [metadataUrlIpfs, imageUrlIpfs] = await pinataUpload(
-    stage,
-    image,
-    manifestBuffer,
-    pinataApiKey,
-    pinataSecretApiKey,
-    pinataGateway,
-    heroTierImagePath
+      return {
+        imageIpfsHash: IpfsHash,
+        imageIpfsUrl: `${gatewayUrl}/ipfs/${IpfsHash}`,
+      };
+    },
+    {
+      retries: 5,
+    }
   );
-
-  return { metadataUrlIpfs, imageUrlIpfs };
 };
 
 // Fetches list of all pins from Pinata

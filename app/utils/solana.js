@@ -7,7 +7,7 @@ const axios = require('axios');
 
 exports.throwErrorNoMetadata = (tokenAddress) => {
   throw new Error(
-    `There is no metadata for NFT ${tokenAddress.slice(0, 8)}...`
+    `There is no metadata for Token ${tokenAddress.slice(0, 8)}...`
   );
 };
 
@@ -65,7 +65,7 @@ exports.updateMetadataUrlSolana = async (
   metadataUrlIpfs
 ) => {
   try {
-    const { stdout, stderr } = retry(
+    const { stdout, stderr } = await retry(
       async () => {
         return await exec(
           `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${metadataUrlIpfs}`
