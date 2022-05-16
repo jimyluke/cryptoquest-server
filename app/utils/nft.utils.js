@@ -5,7 +5,9 @@ const path = require('path');
 
 const addonName = 'CryptoQuest_Test'; // TODO: fix it
 const blenderOutputFolderPathAbsolute =
-  '/home/ali/Desktop/Coding/cryptoquest/blender_output/'; // TODO: fix it
+  process.env.NODE_ENV === 'development'
+    ? process.env.BLENDER_OUTPUT_LOCAL_ADDRESS
+    : process.env.BLENDER_OUTPUT_SERVER_ADDRESS;
 const blenderOutputFolderPathRelative = '../../../blender_output/';
 
 const {
