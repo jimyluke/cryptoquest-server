@@ -1,29 +1,29 @@
 // TODO: create individual IPFS files for each hero tier
 exports.heroTierImagesIpfsUrls = {
   dawnOfManCommon:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/dawn_of_man_common.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmRkYJsxxM6CNUMVzFWJXxyZNGtqHvv1AmmFDuZ4UFQFh5',
   dawnOfManUncommon:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/dawn_of_man_uncommon.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmWCwgsKwzpYgjpw5setLtwXxNSZQvsUF2qt3v9KRBcgp7',
   dawnOfManRare:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/dawn_of_man_rare.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmVu5MAysnXQWLSXq7dd1KXzMgKND8CpjW4X4g7qyCgE6s',
   dawnOfManEpic:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/dawn_of_man_epic.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmPGT4yRyPyXNFXTUgdeDyMhXdqCqmKDzLftkDZcBvb982',
   dawnOfManLegendary:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/dawn_of_man_legendary.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/Qmb15pYTnkFDbfziTKZzLb5VWNV2K6FDdUag5Mt1qmdHro',
   dawnOfManMythic:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/dawn_of_man_mythic.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmTfKc4EGL3Vf49PDEXgjykv91TUP3GvWBjpuzHThrxZQQ',
   woodlandRespiteCommon:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/woodland_respite_common.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmXHVdZvsvmnktavEvTALH6gB4erNmzifw2vH5Lffyc38z',
   woodlandRespiteUncommon:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/woodland_respite_uncommon.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmeWWz7cg92noT18bbLcJXGyY5yqyVhE3f848wjPJUV4sx',
   woodlandRespiteRare:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/woodland_respite_rare.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmYxdimh2ABeeTPsGAFTn4VwFUaoLYwDNd7WqCvYjYeSXc',
   woodlandRespiteEpic:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/woodland_respite_epic.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmZaFCzTdtS4haawTSQqAYZqEqfGCMKC9GZ3GhxBwkx5T7',
   woodlandRespiteLegendary:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/woodland_respite_legendary.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmRirTAWGvUX37L7NGtXJaoipC3aRJttES57HDBHczCiEA',
   woodlandRespiteMythic:
-    'https://ipfs.io/ipfs/QmUfnZiC6M5V6kkrTC7QNJYe2CiArnmviEnTnsx1MhqX3j/woodland_respite_mythic.png',
+    'https://cryptoquest.mypinata.cloud/ipfs/QmUA22PWASn6Zg4aW9hNgyCfAYb5UKSwi2xySpN3KD8qhd',
 };
 
 exports.heroTierRecipes = {
@@ -64,4 +64,9 @@ exports.cosmeticTraitsMap = {
   scar: 'Scar',
   tattoo: 'Tattoo',
   background: 'Background',
+};
+
+exports.uploadIpfsType = {
+  json: 'json',
+  image: 'image',
 };

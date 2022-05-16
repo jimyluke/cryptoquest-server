@@ -1,7 +1,6 @@
 const fs = require('fs');
 const FormData = require('form-data');
 const axios = require('axios');
-const retry = require('async-retry');
 
 const { sleep } = require('./sleep');
 
@@ -17,46 +16,39 @@ exports.uploadJson = async (
   tokenAddress,
   stage
 ) => {
-  return await retry(
-    async () => {
-      const gatewayUrl = gateway ? gateway : `https://ipfs.io`;
+  const gatewayUrl = gateway ? gateway : `https://ipfs.io`;
 
-      const requestBody = {
-        pinataMetadata: {
-          name: `${tokenAddress}-${stage}`,
-          keyvalues: {
-            tokenAddress: tokenAddress,
-            stage: stage,
-          },
-        },
-
-        pinataContent: metadata,
-      };
-
-      const {
-        data: { IpfsHash },
-      } = await axios.post(
-        `https://api.pinata.cloud/pinning/pinJSONToIPFS`,
-        requestBody,
-        {
-          maxBodyLength: 'Infinity',
-          headers: {
-            pinata_api_key: pinataApiKey,
-            pinata_secret_api_key: pinataSecretApiKey,
-          },
-        }
-      );
-      await sleep(500);
-
-      return {
-        metadataIpfsHash: IpfsHash,
-        metadataIpfsUrl: `${gatewayUrl}/ipfs/${IpfsHash}`,
-      };
+  const requestBody = {
+    pinataMetadata: {
+      name: `${tokenAddress}-${stage}`,
+      keyvalues: {
+        tokenAddress: tokenAddress,
+        stage: stage,
+      },
     },
+
+    pinataContent: metadata,
+  };
+
+  const {
+    data: { IpfsHash },
+  } = await axios.post(
+    `https://api.pinata.cloud/pinning/pinJSONToIPFS`,
+    requestBody,
     {
-      retries: 5,
+      maxBodyLength: 'Infinity',
+      headers: {
+        pinata_api_key: pinataApiKey,
+        pinata_secret_api_key: pinataSecretApiKey,
+      },
     }
   );
+  await sleep(500);
+
+  return {
+    metadataIpfsHash: IpfsHash,
+    metadataIpfsUrl: `${gatewayUrl}/ipfs/${IpfsHash}`,
+  };
 };
 
 exports.uploadImage = async (
@@ -66,46 +58,39 @@ exports.uploadImage = async (
   image,
   tokenAddress
 ) => {
-  return await retry(
-    async () => {
-      const gatewayUrl = gateway ? gateway : `https://ipfs.io`;
+  const gatewayUrl = gateway ? gateway : `https://ipfs.io`;
 
-      const formData = new FormData();
-      formData.append('file', fs.createReadStream(image));
+  const formData = new FormData();
+  formData.append('file', fs.createReadStream(image));
 
-      const pinataMetadata = JSON.stringify({
-        name: tokenAddress,
-        keyvalues: {
-          tokenAddress: tokenAddress,
-        },
-      });
-      formData.append('pinataMetadata', pinataMetadata);
-
-      const {
-        data: { IpfsHash },
-      } = await axios.post(
-        `https://api.pinata.cloud/pinning/pinFileToIPFS`,
-        formData,
-        {
-          maxBodyLength: 'Infinity',
-          headers: {
-            'Content-Type': `multipart/form-data; boundary=${formData._boundary}`,
-            pinata_api_key: pinataApiKey,
-            pinata_secret_api_key: pinataSecretApiKey,
-          },
-        }
-      );
-      await sleep(500);
-
-      return {
-        imageIpfsHash: IpfsHash,
-        imageIpfsUrl: `${gatewayUrl}/ipfs/${IpfsHash}`,
-      };
+  const pinataMetadata = JSON.stringify({
+    name: tokenAddress,
+    keyvalues: {
+      tokenAddress: tokenAddress,
     },
+  });
+  formData.append('pinataMetadata', pinataMetadata);
+
+  const {
+    data: { IpfsHash },
+  } = await axios.post(
+    `https://api.pinata.cloud/pinning/pinFileToIPFS`,
+    formData,
     {
-      retries: 5,
+      maxBodyLength: 'Infinity',
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${formData._boundary}`,
+        pinata_api_key: pinataApiKey,
+        pinata_secret_api_key: pinataSecretApiKey,
+      },
     }
   );
+  await sleep(500);
+
+  return {
+    imageIpfsHash: IpfsHash,
+    imageIpfsUrl: `${gatewayUrl}/ipfs/${IpfsHash}`,
+  };
 };
 
 // Fetches list of all pins from Pinata

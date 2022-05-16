@@ -8,12 +8,12 @@ const {
   calculateCosmeticTier,
 } = require('../utils/calculateTiers');
 const { randomInteger } = require('../utils/randomInteger');
+const { extractHashFromIpfsUrl } = require('../utils/pinata');
 const {
-  uploadJson,
-  extractHashFromIpfsUrl,
-  uploadImage,
-} = require('../utils/pinata');
-const { nftStages, cosmeticTraitsMap } = require('../variables/nft.variables');
+  nftStages,
+  cosmeticTraitsMap,
+  uploadIpfsType,
+} = require('../variables/nft.variables');
 const {
   updateMetadataUrlSolana,
   fetchOldMetadata,
@@ -28,12 +28,15 @@ const {
   checkIsTokenAlreadyCustomized,
   throwErrorTokenAlreadyCustomized,
 } = require('../utils/nft.utils');
+const { addBlenderRender } = require('../queues/blenderRender.queue');
+const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
+const blenderOutputFolderPath = '../../../blender_output/';
 const pinataApiKey = process.env.PINATA_API_KEY;
 const pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY;
-const pinataGateway = null;
+const pinataGateway = process.env.PINATA_GATEWAY;
 
 const getRandomTokenFromRecipe = async (recipe) => {
   return await retry(
@@ -223,14 +226,19 @@ exports.revealNft = async (req, res) => {
       },
     };
 
-    const { metadataIpfsHash, metadataIpfsUrl } = await uploadJson(
+    const uploadIpfs = await addUploadIpfs({
+      type: uploadIpfsType.json,
       pinataApiKey,
       pinataSecretApiKey,
       pinataGateway,
-      metadata,
+      data: metadata,
       tokenAddress,
-      nftStages.revealed
-    );
+      stage: nftStages.revealed,
+    });
+    const uploadIpfsResult = await uploadIpfs.finished();
+    console.log(uploadIpfsResult);
+
+    const { metadataIpfsUrl, metadataIpfsHash } = uploadIpfsResult;
 
     const metadataJSON = JSON.stringify(metadata, null, 2);
     fs.writeFileSync(
@@ -324,19 +332,33 @@ exports.customizeNft = async (req, res) => {
       value: item[1],
     }));
 
+    const blenderRender = await addBlenderRender({
+      tokenId,
+      cosmeticTraits,
+      heroTier: currentNft?.hero_tier,
+    });
+    const renderResult = await blenderRender.finished();
+    console.log(renderResult);
+
     const image = path.resolve(
       __dirname,
-      `${metadataFolderPath}rendered_hero.jpeg`
+      `${blenderOutputFolderPath}${tokenId}.png` // TODO: change extension
     );
 
     // TODO: save rendered image on server with imageIpfsHash name
-    const { imageIpfsHash, imageIpfsUrl } = await uploadImage(
+    const uploadImageIpfs = await addUploadIpfs({
+      type: uploadIpfsType.image,
       pinataApiKey,
       pinataSecretApiKey,
       pinataGateway,
-      image,
-      tokenAddress
-    );
+      data: image,
+      tokenAddress,
+      stage: nftStages.customized,
+    });
+    const uploadImageIpfsResult = await uploadImageIpfs.finished();
+    console.log(uploadImageIpfsResult);
+
+    const { imageIpfsHash, imageIpfsUrl } = uploadImageIpfsResult;
 
     const metadata = {
       ...oldMetadata,
@@ -355,20 +377,25 @@ exports.customizeNft = async (req, res) => {
         files: [
           {
             uri: imageIpfsUrl,
-            type: 'image/jpeg',
+            type: 'image/png', // TODO: change extension
           },
         ],
       },
     };
 
-    const { metadataIpfsHash, metadataIpfsUrl } = await uploadJson(
+    const uploadJsonIpfs = await addUploadIpfs({
+      type: uploadIpfsType.json,
       pinataApiKey,
       pinataSecretApiKey,
       pinataGateway,
-      metadata,
+      data: metadata,
       tokenAddress,
-      nftStages.customized
-    );
+      stage: nftStages.customized,
+    });
+    const uploadJsonIpfsResult = await uploadJsonIpfs.finished();
+    console.log(uploadJsonIpfsResult);
+
+    const { metadataIpfsUrl, metadataIpfsHash } = uploadJsonIpfsResult;
 
     const metadataJSON = JSON.stringify(metadata, null, 2);
     fs.writeFileSync(
@@ -421,6 +448,7 @@ exports.customizeNft = async (req, res) => {
 
     res.status(200).send({ success: 'Success' });
   } catch (error) {
+    console.log('ERROR CATCHED: ', error.message);
     res.status(404).send({ message: error.message });
   }
 };

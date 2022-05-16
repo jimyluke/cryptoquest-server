@@ -2,12 +2,14 @@ const fs = require('fs');
 const util = require('util');
 const path = require('path');
 const exec = util.promisify(require('child_process').exec);
+
 const pool = require('../config/db.config');
 const {
   fetchOldMetadata,
   throwErrorNoMetadata,
   fetchTokenMetadataByTokenAddress,
 } = require('../utils/solana');
+const { tokenNameStatuses } = require('../variables/tokenName.variables');
 
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
 
@@ -18,7 +20,7 @@ exports.checkIsTokenNameUnique = async (req, res) => {
 
     const rejectedTokenNames = await pool.query(
       'SELECT * FROM token_names WHERE token_name_status = $1',
-      ['rejected']
+      [tokenNameStatuses.rejected]
     );
     const rejectedTokenNamesLower = rejectedTokenNames.rows.map((item) =>
       item.token_name.toLowerCase()
@@ -119,9 +121,9 @@ const handleTokenNameStatusChange = async (req, res, tokenNameId, status) => {
 
   const metadata = {
     ...oldMetadata,
-    ...(status === 'approved'
+    ...(status === tokenNameStatuses.approved
       ? { token_name: tokenName }
-      : status === 'rejected'
+      : status === tokenNameStatuses.rejected
       ? { token_name: 'NAME PENDING' }
       : {}),
   };
@@ -143,14 +145,14 @@ exports.approveTokenName = async (req, res) => {
       req,
       res,
       tokenNameId,
-      'approved'
+      tokenNameStatuses.approved
     );
 
     if (!tokenName || res.statusCode === 404) return;
 
     await pool.query(
       'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
-      ['approved', tokenNameId]
+      [tokenNameStatuses.approved, tokenNameId]
     );
     res.status(200).send({
       message: `Token name "${tokenName}" successfully approved`,
@@ -168,14 +170,14 @@ exports.rejectTokenName = async (req, res) => {
       req,
       res,
       tokenNameId,
-      'rejected'
+      tokenNameStatuses.rejected
     );
 
     if (!tokenName || res.statusCode === 404) return;
 
     await pool.query(
       'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
-      ['rejected', tokenNameId]
+      [tokenNameStatuses.rejected, tokenNameId]
     );
     res.status(200).send({
       message: `Token name "${tokenName}" successfully rejected`,
@@ -194,11 +196,16 @@ exports.editTokenName = async (req, res) => {
       tokenNameId,
     ]);
 
-    await handleTokenNameStatusChange(req, res, tokenNameId, 'approved');
+    await handleTokenNameStatusChange(
+      req,
+      res,
+      tokenNameId,
+      tokenNameStatuses.approved
+    );
 
     await pool.query(
       'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
-      ['approved', tokenNameId]
+      [tokenNameStatuses.approved, tokenNameId]
     );
 
     res.status(200).send({
@@ -275,7 +282,10 @@ exports.renameTokenName = async (req, res) => {
       (tokenName) => tokenName?.token_name_status
     );
 
-    const validStatuses = ['approved', 'under_consideration'];
+    const validStatuses = [
+      tokenNameStatuses.approved,
+      tokenNameStatuses.underConsideration,
+    ];
 
     const isValidTokenNameExists = validStatuses.some((elem) =>
       tokenNamesStatuses.includes(elem)
@@ -293,7 +303,7 @@ exports.renameTokenName = async (req, res) => {
 
     await pool.query(
       'INSERT INTO token_names (nft_id, token_name, token_name_status) VALUES($1, $2, $3) RETURNING *',
-      [currentNft.id, tokenName, 'under_consideration']
+      [currentNft.id, tokenName, tokenNameStatuses.underConsideration]
     );
 
     res.status(200).send({

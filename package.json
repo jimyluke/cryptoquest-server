@@ -17,6 +17,8 @@
     "nodemon": "^2.0.15"
   },
   "dependencies": {
+    "@bull-board/api": "^3.11.0",
+    "@bull-board/express": "^3.11.0",
     "@metaplex-foundation/mpl-token-metadata": "~2.0",
     "@solana/spl-token": "^0.2.0",
     "@solana/web3.js": "^1.41.3",
@@ -25,6 +27,7 @@
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.19.2",
     "bs58": "^5.0.0",
+    "bull": "^4.8.3",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^16.0.0",
