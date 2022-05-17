@@ -3,7 +3,7 @@ const exec = util.promisify(require('child_process').exec);
 const fs = require('fs');
 const path = require('path');
 
-const addonName = 'CryptoQuest_Test'; // TODO: fix it
+const addonName = 'CryptoQuest_Test'; // TODO: fix it for real addon name
 const blenderOutputFolderPathAbsolute =
   process.env.NODE_ENV === 'development'
     ? process.env.BLENDER_OUTPUT_LOCAL_ADDRESS
@@ -22,12 +22,18 @@ exports.throwErrorTokenAlreadyRevealed = (tokenAddress) => {
   );
 };
 
-exports.throwErrorTokenHasNotBeenRevealed = async (tokenAddress) => {
+exports.throwErrorTokenHasNotBeenRevealed = (tokenAddress) => {
   throw new Error(`Token ${tokenAddress.slice(0, 8)}... has not been revealed`);
 };
 
-exports.throwErrorTokenAlreadyCustomized = async (tokenAddress) => {
+exports.throwErrorTokenAlreadyCustomized = (tokenAddress) => {
   throw new Error(`Token ${tokenAddress.slice(0, 8)}... already customized`);
+};
+
+exports.throwErrorTokenHasNotBeenCustomized = (tokenAddress) => {
+  throw new Error(
+    `Token ${tokenAddress.slice(0, 8)}... has not been customized`
+  );
 };
 
 exports.checkIsTokenAlreadyRevealed = async (tokenAddress) => {
@@ -87,7 +93,12 @@ exports.selectTokenByAddress = async (tokenAddress) => {
   return token;
 };
 
-exports.renderTokenFromBlender = async (tokenId, cosmeticTraits, heroTier) => {
+exports.renderTokenFromBlender = async (
+  tokenId,
+  cosmeticTraits,
+  heroTier,
+  tokenAddress
+) => {
   console.log(tokenId);
 
   const {
@@ -158,5 +169,7 @@ exports.renderTokenFromBlender = async (tokenId, cosmeticTraits, heroTier) => {
     }
   }
 
-  return 'success';
+  return {
+    tokenAddress,
+  };
 };

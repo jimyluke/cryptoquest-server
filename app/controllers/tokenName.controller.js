@@ -1,17 +1,29 @@
 const fs = require('fs');
-const util = require('util');
 const path = require('path');
-const exec = util.promisify(require('child_process').exec);
 
 const pool = require('../config/db.config');
 const {
   fetchOldMetadata,
   throwErrorNoMetadata,
   fetchTokenMetadataByTokenAddress,
+  updateMetadataUrlSolana,
 } = require('../utils/solana');
 const { tokenNameStatuses } = require('../variables/tokenName.variables');
-
+const { uploadIpfsType, nftStages } = require('../variables/nft.variables');
+const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
+const {
+  throwErrorTokenHasNotBeenCustomized,
+  selectTokenByAddress,
+  checkIsTokenAlreadyRevealed,
+  throwErrorTokenHasNotBeenRevealed,
+  checkIsTokenAlreadyCustomized,
+} = require('../utils/nft.utils');
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
+
+const metadataFolderPath = '../../../metadata/';
+const pinataApiKey = process.env.PINATA_API_KEY;
+const pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY;
+const pinataGateway = process.env.PINATA_GATEWAY;
 
 exports.checkIsTokenNameUnique = async (req, res) => {
   try {
@@ -36,8 +48,10 @@ exports.checkIsTokenNameUnique = async (req, res) => {
 
     res.status(200).send({ isTokenNameExist, isTokenNameRejected });
   } catch (error) {
-    console.log(error.message);
-    res.status(404).send(error.message);
+    console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
@@ -60,64 +74,54 @@ exports.loadTokenNames = async (req, res) => {
       })
     );
 
-    res.json(allTokenNamesData);
+    res.status(200).send(allTokenNamesData);
   } catch (error) {
     console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
-const handleTokenNameStatusChange = async (req, res, tokenNameId, status) => {
-  const tokenNameData = await pool.query(
+const handleTokenNameStatusChange = async (
+  tokenNameId,
+  status,
+  editedTokenName
+) => {
+  const tokenNameDataQuery = await pool.query(
     'SELECT * FROM token_names WHERE id = $1',
     [tokenNameId]
   );
 
-  if (!tokenNameData.rows[0]) {
-    res.status(404).send({
-      message: `There is no token name with id ${tokenNameId}`,
-    });
-    return;
+  const tokenNameData = tokenNameDataQuery?.rows?.[0];
+
+  if (!tokenNameData) {
+    throw new Error(`There is no token name with id ${tokenNameId}`);
   }
 
-  const tokenId = tokenNameData.rows[0].nft_id;
-  const tokenName = tokenNameData.rows[0].token_name;
+  const tokenId = tokenNameData?.nft_id;
+  const tokenNameFromDB = tokenNameData?.token_name;
 
-  const tokenData = await pool.query('SELECT * FROM tokens WHERE id = $1', [
-    tokenId,
-  ]);
+  const tokenName = editedTokenName || tokenNameFromDB;
 
-  if (!tokenData.rows[0]) {
-    res.status(404).send({
-      message: `There is no token with id ${tokenId}`,
-    });
-    return;
+  const tokenDataQuery = await pool.query(
+    'SELECT * FROM tokens WHERE id = $1',
+    [tokenId]
+  );
+
+  const tokenData = tokenDataQuery?.rows?.[0];
+
+  if (!tokenData) {
+    throw new Error(`There is no token with id ${tokenId}`);
   }
 
-  const tokenAddress = tokenData?.rows?.[0]?.token_address;
+  const tokenAddress = tokenData?.token_address;
 
   const tokenMetadata = await fetchTokenMetadataByTokenAddress(tokenAddress);
   const metadataUrl = tokenMetadata?.data?.data?.uri;
 
   const oldMetadata = await fetchOldMetadata(tokenAddress, metadataUrl);
   !oldMetadata && throwErrorNoMetadata(tokenAddress);
-
-  try {
-    const { stdout, stderr } = await exec(
-      `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${
-        process.env.NODE_ENV === 'development'
-          ? `${process.env.LOCAL_ADDRESS}/metadata/${tokenAddress}.json`
-          : `${process.env.SERVER_ADDRESS}/api/metadata/${tokenAddress}.json`
-      }`
-    );
-
-    console.log('METABOSS STDOUT:', stdout);
-    if (stderr) console.log('METABOSS STDERR:', stderr);
-  } catch (error) {
-    res.status(404).send({
-      message: `Unable to change metadata, Solana blockchain unavailable, please try again later`,
-    });
-    return;
-  }
 
   const metadata = {
     ...oldMetadata,
@@ -128,10 +132,30 @@ const handleTokenNameStatusChange = async (req, res, tokenNameId, status) => {
       : {}),
   };
 
+  const uploadIpfs = await addUploadIpfs({
+    type: uploadIpfsType.json,
+    pinataApiKey,
+    pinataSecretApiKey,
+    pinataGateway,
+    data: metadata,
+    tokenAddress,
+    stage: nftStages.renamed,
+  });
+  const uploadIpfsResult = await uploadIpfs.finished();
+  console.log(uploadIpfsResult);
+  const { metadataIpfsUrl, metadataIpfsHash } = uploadIpfsResult;
+
   const metadataJSON = JSON.stringify(metadata, null, 2);
   fs.writeFileSync(
-    path.resolve(__dirname, `../../../metadata/${tokenAddress}.json`),
+    path.resolve(__dirname, `${metadataFolderPath}${metadataIpfsHash}.json`),
     metadataJSON
+  );
+
+  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+
+  await pool.query(
+    'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
+    [tokenId, nftStages.renamed, metadataIpfsUrl, oldMetadata?.image]
   );
 
   return tokenName;
@@ -142,13 +166,9 @@ exports.approveTokenName = async (req, res) => {
     const { tokenNameId } = req.body;
 
     const tokenName = await handleTokenNameStatusChange(
-      req,
-      res,
       tokenNameId,
       tokenNameStatuses.approved
     );
-
-    if (!tokenName || res.statusCode === 404) return;
 
     await pool.query(
       'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
@@ -159,6 +179,9 @@ exports.approveTokenName = async (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
@@ -167,13 +190,9 @@ exports.rejectTokenName = async (req, res) => {
     const { tokenNameId } = req.body;
 
     const tokenName = await handleTokenNameStatusChange(
-      req,
-      res,
       tokenNameId,
       tokenNameStatuses.rejected
     );
-
-    if (!tokenName || res.statusCode === 404) return;
 
     await pool.query(
       'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
@@ -184,28 +203,25 @@ exports.rejectTokenName = async (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
 exports.editTokenName = async (req, res) => {
   try {
-    const { tokenName, tokenNameId } = req.body;
+    const { tokenName: editedTokenName, tokenNameId } = req.body;
 
-    await pool.query('UPDATE token_names SET token_name = $1 WHERE id = $2', [
-      tokenName,
+    const tokenName = await handleTokenNameStatusChange(
       tokenNameId,
-    ]);
-
-    await handleTokenNameStatusChange(
-      req,
-      res,
-      tokenNameId,
-      tokenNameStatuses.approved
+      tokenNameStatuses.approved,
+      editedTokenName
     );
 
     await pool.query(
-      'UPDATE token_names SET token_name_status = $1 WHERE id = $2',
-      [tokenNameStatuses.approved, tokenNameId]
+      'UPDATE token_names SET token_name = $1, token_name_status = $2 WHERE id = $3',
+      [editedTokenName, tokenNameStatuses.approved, tokenNameId]
     );
 
     res.status(200).send({
@@ -213,6 +229,9 @@ exports.editTokenName = async (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
@@ -220,26 +239,29 @@ exports.deleteTokenName = async (req, res) => {
   try {
     const { tokenNameId } = req.body;
 
-    const tokenNameData = await pool.query(
+    const tokenNameDataQuery = await pool.query(
       'SELECT * FROM token_names WHERE id = $1',
       [tokenNameId]
     );
 
-    if (!tokenNameData.rows[0]) {
-      res.status(404).send({
-        message: `There is no token name with id ${tokenNameId}`,
-      });
-      return;
+    const tokenNameData = tokenNameDataQuery?.rows?.[0];
+
+    if (!tokenNameData) {
+      throw new Error(`There is no token name with id ${tokenNameId}`);
     }
 
-    const tokenName = tokenNameData.rows[0].token_name;
+    const tokenName = tokenNameData?.token_name;
 
     await pool.query('DELETE FROM token_names WHERE id = $1', [tokenNameId]);
+
     res.status(200).send({
       message: `Token name "${tokenName}" successfully deleted`,
     });
   } catch (error) {
     console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
@@ -247,38 +269,35 @@ exports.renameTokenName = async (req, res) => {
   try {
     const { tokenName, tokenAddress } = req.body;
 
-    const currentNftQuery = await pool.query(
-      'SELECT * FROM tokens WHERE token_address = $1',
-      [tokenAddress]
+    const currentNft = await selectTokenByAddress(tokenAddress);
+    const isTokenAlreadyRevealed = await checkIsTokenAlreadyRevealed(
+      tokenAddress
     );
-
-    const currentNft = currentNftQuery.rows[0];
-
-    if (!currentNft) {
-      throw new Error(
-        `NFT ${tokenAddress.slice(0, 8)}... has not been revealed`
-      );
+    if (!isTokenAlreadyRevealed) {
+      throwErrorTokenHasNotBeenRevealed(tokenAddress);
     }
 
-    const isTokenAddressExistQuery = await pool.query(
-      'SELECT EXISTS(SELECT * FROM characters WHERE nft_id = $1)',
-      [currentNft.id]
+    const isTokenAlreadyCustomized = await checkIsTokenAlreadyCustomized(
+      currentNft.id
     );
-
-    const isTokenAddressExist = isTokenAddressExistQuery.rows[0].exists;
-
-    if (!isTokenAddressExist) {
-      throw new Error(
-        `NFT ${tokenAddress.slice(0, 8)}... has not been customized`
-      );
+    if (!isTokenAlreadyCustomized) {
+      throwErrorTokenHasNotBeenCustomized(tokenAddress);
     }
 
-    const tokenNameData = await pool.query(
+    const tokenNameDataQuery = await pool.query(
       'SELECT * FROM token_names WHERE nft_id = $1',
       [currentNft.id]
     );
 
-    const tokenNamesStatuses = tokenNameData.rows.map(
+    const tokenNameData = tokenNameDataQuery?.rows;
+
+    if (!tokenNameData || tokenNameData.length === 0) {
+      throw new Error(
+        `There is no name for token ${tokenAddress.slice(0, 8)}...`
+      );
+    }
+
+    const tokenNamesStatuses = tokenNameData.map(
       (tokenName) => tokenName?.token_name_status
     );
 
@@ -293,7 +312,7 @@ exports.renameTokenName = async (req, res) => {
 
     if (isValidTokenNameExists) {
       res.status(404).send({
-        message: `Token name for NFT ${tokenAddress.slice(
+        message: `Token name for token ${tokenAddress.slice(
           0,
           8
         )}... is not possible to change`,
@@ -311,6 +330,9 @@ exports.renameTokenName = async (req, res) => {
     });
   } catch (error) {
     console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
@@ -318,26 +340,18 @@ exports.fetchLastTokenName = async (req, res) => {
   try {
     const { tokenAddress } = req.body;
 
-    const currentNftQuery = await pool.query(
-      'SELECT * FROM tokens WHERE token_address = $1',
-      [tokenAddress]
-    );
-
-    const currentNft = currentNftQuery.rows[0];
+    const currentNft = await selectTokenByAddress(tokenAddress);
 
     if (!currentNft) {
       res.status(200).send({ token_name_status: null });
       return;
     }
 
-    const isTokenAddressExistQuery = await pool.query(
-      'SELECT EXISTS(SELECT * FROM characters WHERE nft_id = $1)',
-      [currentNft.id]
+    const isTokenAlreadyCustomized = await checkIsTokenAlreadyCustomized(
+      currentNft.id
     );
 
-    const isTokenAddressExist = isTokenAddressExistQuery.rows[0].exists;
-
-    if (!isTokenAddressExist) {
+    if (!isTokenAlreadyCustomized) {
       res.status(200).send({ token_name_status: null });
       return;
     }
@@ -362,5 +376,8 @@ exports.fetchLastTokenName = async (req, res) => {
     res.status(200).send({ token_name_status: tokenNameStatus });
   } catch (error) {
     console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };

@@ -125,7 +125,9 @@ exports.checkIsTokenIdUnique = async (req, res) => {
     res.status(200).send({ isTokenIdExist });
   } catch (error) {
     console.error(error.message);
-    res.status(404).send(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
@@ -157,8 +159,10 @@ exports.availableRecipes = async (req, res) => {
       dawnOfMan: remainingRecipesDawnOfMan,
     });
   } catch (error) {
-    console.log(error.message);
-    res.status(404).send(error.message);
+    console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
 
@@ -327,15 +331,11 @@ exports.customizeNft = async (req, res) => {
     console.log(`Start customizing NFT ${tokenAddress}`);
     console.log(`Start changing metadata for NFT ${tokenAddress}`);
 
-    const attributes = Object.entries(cosmeticTraits).map((item) => ({
-      trait_type: cosmeticTraitsMap[item[0]],
-      value: item[1],
-    }));
-
     const blenderRender = await addBlenderRender({
       tokenId,
       cosmeticTraits,
       heroTier: currentNft?.hero_tier,
+      tokenAddress,
     });
     const renderResult = await blenderRender.finished();
     console.log(renderResult);
@@ -345,7 +345,6 @@ exports.customizeNft = async (req, res) => {
       `${blenderOutputFolderPath}${tokenId}.png` // TODO: change extension
     );
 
-    // TODO: save rendered image on server with imageIpfsHash name
     const uploadImageIpfs = await addUploadIpfs({
       type: uploadIpfsType.image,
       pinataApiKey,
@@ -368,6 +367,11 @@ exports.customizeNft = async (req, res) => {
     fs.copyFile(image, metadataImage, (err) => {
       if (err) throw err;
     });
+
+    const attributes = Object.entries(cosmeticTraits).map((item) => ({
+      trait_type: cosmeticTraitsMap[item[0]],
+      value: item[1],
+    }));
 
     const metadata = {
       ...oldMetadata,
@@ -453,11 +457,11 @@ exports.customizeNft = async (req, res) => {
       [currentNft.id, nftStages.customized, metadataIpfsUrl, imageIpfsUrl]
     );
 
-    console.log(`NFT ${tokenAddress} has been written to the database`);
-
     res.status(200).send({ success: 'Success' });
   } catch (error) {
-    console.log('ERROR CATCHED: ', error.message);
-    res.status(404).send({ message: error.message });
+    console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
   }
 };
