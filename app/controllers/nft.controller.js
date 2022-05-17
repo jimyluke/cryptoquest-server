@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const retry = require('async-retry');
+const Jimp = require('jimp');
 
 const pool = require('../config/db.config');
 const {
@@ -224,7 +225,7 @@ exports.revealNft = async (req, res) => {
         files: [
           {
             uri: imageIpfsUrl,
-            type: 'image/png',
+            type: 'image/png', // TODO: Change extension
           },
         ],
       },
@@ -345,12 +346,25 @@ exports.customizeNft = async (req, res) => {
       `${blenderOutputFolderPath}${tokenId}.png` // TODO: change extension
     );
 
+    const imageJpeg = path.resolve(
+      __dirname,
+      `${blenderOutputFolderPath}${tokenId}.jpeg` // TODO: change extension
+    );
+
+    Jimp.read(image, (error, image) => {
+      if (error) {
+        console.error(error);
+      } else {
+        image.write(imageJpeg);
+      }
+    });
+
     const uploadImageIpfs = await addUploadIpfs({
       type: uploadIpfsType.image,
       pinataApiKey,
       pinataSecretApiKey,
       pinataGateway,
-      data: image,
+      data: imageJpeg,
       tokenAddress,
       stage: nftStages.customized,
     });
@@ -361,10 +375,10 @@ exports.customizeNft = async (req, res) => {
 
     const metadataImage = path.resolve(
       __dirname,
-      `${metadataFolderPath}${imageIpfsHash}.png` // TODO: change extension
+      `${metadataFolderPath}${imageIpfsHash}.jpeg` // TODO: change extension
     );
 
-    fs.copyFile(image, metadataImage, (err) => {
+    fs.copyFile(imageJpeg, metadataImage, (err) => {
       if (err) throw err;
     });
 
@@ -390,7 +404,7 @@ exports.customizeNft = async (req, res) => {
         files: [
           {
             uri: imageIpfsUrl,
-            type: 'image/png', // TODO: change extension
+            type: 'image/jpeg', // TODO: change extension
           },
         ],
       },
