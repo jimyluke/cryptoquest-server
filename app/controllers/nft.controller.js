@@ -360,6 +360,15 @@ exports.customizeNft = async (req, res) => {
 
     const { imageIpfsHash, imageIpfsUrl } = uploadImageIpfsResult;
 
+    const metadataImage = path.resolve(
+      __dirname,
+      `${metadataFolderPath}${imageIpfsHash}.png` // TODO: change extension
+    );
+
+    fs.copyFile(image, metadataImage, (err) => {
+      if (err) throw err;
+    });
+
     const metadata = {
       ...oldMetadata,
       image: imageIpfsUrl,
