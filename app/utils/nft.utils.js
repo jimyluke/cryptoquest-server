@@ -121,8 +121,8 @@ exports.renderTokenFromBlender = async (
 
   const config = {
     engine: 'CYCLES',
-    width: 128,
-    height: 128,
+    width: 1000,
+    height: 1000,
     'NFT name': `${race}_${sex}_${faceStyle.split(' ').join('_')}`,
     'Token Id': tokenId,
     race,

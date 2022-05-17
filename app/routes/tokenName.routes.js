@@ -11,7 +11,10 @@ module.exports = function (app) {
   });
 
   // Check is token name unique
-  app.post('/api/checkIsTokenNameUnique', controller.checkIsTokenNameUnique);
+  app.post(
+    '/api/checkIsTokenNameUnique',
+    controller.checkIsTokenNameUniqueController
+  );
 
   // Load list of token names
   app.get('/api/tokenNames', verifyJWTToken, controller.loadTokenNames);

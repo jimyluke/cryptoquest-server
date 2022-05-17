@@ -25,28 +25,34 @@ const pinataApiKey = process.env.PINATA_API_KEY;
 const pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY;
 const pinataGateway = process.env.PINATA_GATEWAY;
 
-exports.checkIsTokenNameUnique = async (req, res) => {
+exports.checkIsTokenNameUnique = async (tokenName) => {
+  const tokenNameLower = tokenName.trim().toLowerCase();
+
+  const rejectedTokenNames = await pool.query(
+    'SELECT * FROM token_names WHERE token_name_status = $1',
+    [tokenNameStatuses.rejected]
+  );
+  const rejectedTokenNamesLower = rejectedTokenNames.rows.map((item) =>
+    item.token_name.toLowerCase()
+  );
+  const isTokenNameRejected = rejectedTokenNamesLower.includes(tokenNameLower);
+
+  const tokenNames = await pool.query('SELECT * FROM token_names');
+  const tokenNamesLower = tokenNames.rows.map((item) =>
+    item.token_name.toLowerCase()
+  );
+  const isTokenNameExist = tokenNamesLower.includes(tokenNameLower);
+
+  return { isTokenNameExist, isTokenNameRejected };
+};
+
+exports.checkIsTokenNameUniqueController = async (req, res) => {
   try {
     const { tokenName } = req.body;
-    const tokenNameLower = tokenName.trim().toLowerCase();
 
-    const rejectedTokenNames = await pool.query(
-      'SELECT * FROM token_names WHERE token_name_status = $1',
-      [tokenNameStatuses.rejected]
-    );
-    const rejectedTokenNamesLower = rejectedTokenNames.rows.map((item) =>
-      item.token_name.toLowerCase()
-    );
-    const isTokenNameRejected =
-      rejectedTokenNamesLower.includes(tokenNameLower);
+    const isTokenNameExistResult = await this.checkIsTokenNameUnique(tokenName);
 
-    const tokenNames = await pool.query('SELECT * FROM token_names');
-    const tokenNamesLower = tokenNames.rows.map((item) =>
-      item.token_name.toLowerCase()
-    );
-    const isTokenNameExist = tokenNamesLower.includes(tokenNameLower);
-
-    res.status(200).send({ isTokenNameExist, isTokenNameRejected });
+    res.status(200).send(isTokenNameExistResult);
   } catch (error) {
     console.error(error.message);
     res.status(404).send({

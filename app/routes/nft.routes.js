@@ -11,7 +11,10 @@ module.exports = function (app) {
   });
 
   // Check is nft unique
-  app.post('/api/checkIsTokenIdUnique', controller.checkIsTokenIdUnique);
+  app.post(
+    '/api/checkIsTokenIdUnique',
+    controller.checkIsTokenIdUniqueController
+  );
 
   // Load available recipes
   app.get('/api/availableRecipes', controller.availableRecipes);

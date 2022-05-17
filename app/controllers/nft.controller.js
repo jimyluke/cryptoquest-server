@@ -31,6 +31,7 @@ const {
 } = require('../utils/nft.utils');
 const { addBlenderRender } = require('../queues/blenderRender.queue');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
+const { checkIsTokenNameUnique } = require('./tokenName.controller');
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
@@ -111,17 +112,23 @@ const getRandomTokenFromRecipe = async (recipe) => {
   );
 };
 
+const checkIsTokenIdUnique = async (tokenId) => {
+  const isTokenIdExistQuery = await pool.query(
+    'SELECT EXISTS(SELECT 1 FROM characters WHERE token_id = $1)',
+    [tokenId]
+  );
+
+  const isTokenIdExist = isTokenIdExistQuery?.rows?.[0]?.exists;
+
+  return isTokenIdExist;
+};
+
 // Check is nft unique
-exports.checkIsTokenIdUnique = async (req, res) => {
+exports.checkIsTokenIdUniqueController = async (req, res) => {
   try {
     const { tokenId } = req.body;
 
-    const isTokenIdExistQuery = await pool.query(
-      'SELECT EXISTS(SELECT 1 FROM characters WHERE token_id = $1)',
-      [tokenId]
-    );
-
-    const isTokenIdExist = isTokenIdExistQuery.rows[0].exists;
+    const isTokenIdExist = await checkIsTokenIdUnique(tokenId);
 
     res.status(200).send({ isTokenIdExist });
   } catch (error) {
@@ -310,6 +317,26 @@ exports.customizeNft = async (req, res) => {
       skills,
       metadataUri,
     } = req.body;
+
+    const isTokenIdExist = await checkIsTokenIdUnique(tokenId);
+    if (isTokenIdExist) {
+      throw new Error(
+        `Current combination of traits already exist. Please change them.`
+      );
+    }
+
+    const { isTokenNameExist, isTokenNameRejected } =
+      await checkIsTokenNameUnique(tokenName);
+    if (isTokenNameExist) {
+      throw new Error(
+        `Token name already exist. Please rename your character.`
+      );
+    }
+    if (isTokenNameRejected) {
+      throw new Error(
+        `Token name is not allowed. Please rename your character.`
+      );
+    }
 
     const oldMetadata = await fetchOldMetadata(tokenAddress, metadataUri);
     !oldMetadata && throwErrorNoMetadata(tokenAddress);
