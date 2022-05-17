@@ -18,12 +18,13 @@ const {
   throwErrorTokenHasNotBeenRevealed,
   checkIsTokenAlreadyCustomized,
 } = require('../utils/nft.utils');
+const { getPinataCredentials } = require('../utils/pinata');
 const keypair = path.resolve(__dirname, `../config/keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
-const pinataApiKey = process.env.PINATA_API_KEY;
-const pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY;
-const pinataGateway = process.env.PINATA_GATEWAY;
+
+const { pinataApiKey, pinataSecretApiKey, pinataGateway } =
+  getPinataCredentials();
 
 exports.checkIsTokenNameUnique = async (tokenName) => {
   const tokenNameLower = tokenName.trim().toLowerCase();

@@ -3,6 +3,30 @@ const FormData = require('form-data');
 const axios = require('axios');
 
 const { sleep } = require('./sleep');
+const { environmentEnum } = require('../variables/global.variables');
+
+exports.getPinataCredentials = () => {
+  let pinataApiKey, pinataSecretApiKey, pinataJwt, pinataGateway;
+
+  if (process.env.NODE_ENV === environmentEnum.development) {
+    // TODO: change for production
+    // pinataApiKey = process.env.PINATA_API_KEY_DEVELOPMENT;
+    // pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY_DEVELOPMENT;
+    // pinataJwt = process.env.PINATA_JWT_DEVELOPMENT;
+    // pinataGateway = process.env.PINATA_GATEWAY_DEVELOPMENT;
+    pinataApiKey = process.env.PINATA_API_KEY_PRODUCTION;
+    pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY_PRODUCTION;
+    pinataJwt = process.env.PINATA_JWT_PRODUCTION;
+    pinataGateway = process.env.PINATA_GATEWAY_PRODUCTION;
+  } else {
+    pinataApiKey = process.env.PINATA_API_KEY_PRODUCTION;
+    pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY_PRODUCTION;
+    pinataJwt = process.env.PINATA_JWT_PRODUCTION;
+    pinataGateway = process.env.PINATA_GATEWAY_PRODUCTION;
+  }
+
+  return { pinataApiKey, pinataSecretApiKey, pinataJwt, pinataGateway };
+};
 
 exports.extractHashFromIpfsUrl = (ipfsUrl) => {
   return ipfsUrl.split('ipfs/').pop().split('?')[0];
@@ -178,16 +202,20 @@ exports.uploadImage = async (
 // Unpin all pinned files from Pinata
 // exports.unpinAllFromPinata = async (pinataApiKey, pinataSecretApiKey) => {
 //   try {
-//     const pinList = await this.fetchPinListPinata(pinataApiKey, pinataSecretApiKey, {
-//       selectedPinStatus: 'pinned',
-//       pageLimit: 1000,
-//     });
+//     const pinList = await this.fetchPinListPinata(
+//       pinataApiKey,
+//       pinataSecretApiKey,
+//       {
+//         selectedPinStatus: 'pinned',
+//         pageLimit: 1000,
+//       }
+//     );
 //     await sleep(1000);
 
 //     for (var i = 0; i < pinList.rows.length; i++) {
 //       await this.removePinFromPinata(
-//         process.env.PINATA_API_KEY,
-//         process.env.PINATA_API_SECRET_KEY,
+//         pinataApiKey,
+//         pinataSecretApiKey,
 //         pinList.rows[i]?.ipfs_pin_hash
 //       );
 //       console.log(i);

@@ -4,6 +4,7 @@ const retry = require('async-retry');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
+const { environmentEnum } = require('../variables/global.variables');
 
 exports.throwErrorNoMetadata = (tokenAddress) => {
   throw new Error(
@@ -19,7 +20,7 @@ exports.throwErrorSolanaUnavailable = () => {
 
 exports.getSolanaConnection = async () => {
   const clusterUrl =
-    process.env.NODE_ENV === 'development' // TODO: FIX FOR PRODUCTION
+    process.env.NODE_ENV === environmentEnum.development // TODO: FIX FOR PRODUCTION
       ? process.env.DEVNET_CLUSTER_URL
       : process.env.DEVNET_CLUSTER_URL;
   // : process.env.MAINNET_CLUSTER_URL;

@@ -9,7 +9,10 @@ const {
   calculateCosmeticTier,
 } = require('../utils/calculateTiers');
 const { randomInteger } = require('../utils/randomInteger');
-const { extractHashFromIpfsUrl } = require('../utils/pinata');
+const {
+  extractHashFromIpfsUrl,
+  getPinataCredentials,
+} = require('../utils/pinata');
 const {
   nftStages,
   cosmeticTraitsMap,
@@ -36,9 +39,9 @@ const keypair = path.resolve(__dirname, `../config/keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
 const blenderOutputFolderPath = '../../../blender_output/';
-const pinataApiKey = process.env.PINATA_API_KEY;
-const pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY;
-const pinataGateway = process.env.PINATA_GATEWAY;
+
+const { pinataApiKey, pinataSecretApiKey, pinataGateway } =
+  getPinataCredentials();
 
 const getRandomTokenFromRecipe = async (recipe) => {
   return await retry(

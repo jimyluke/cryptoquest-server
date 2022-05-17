@@ -3,18 +3,19 @@ const exec = util.promisify(require('child_process').exec);
 const fs = require('fs');
 const path = require('path');
 
-const addonName = 'CryptoQuest_Test'; // TODO: fix it for real addon name
-const blenderOutputFolderPathAbsolute =
-  process.env.NODE_ENV === 'development'
-    ? process.env.BLENDER_OUTPUT_LOCAL_ADDRESS
-    : process.env.BLENDER_OUTPUT_SERVER_ADDRESS;
-const blenderOutputFolderPathRelative = '../../../blender_output/';
-
 const {
   heroTierImagesIpfsUrls,
   heroTierRecipes,
 } = require('../variables/nft.variables');
 const pool = require('../config/db.config');
+const { environmentEnum } = require('../variables/global.variables');
+
+const addonName = 'CryptoQuest_Test'; // TODO: fix it for real addon name
+const blenderOutputFolderPathAbsolute =
+  process.env.NODE_ENV === environmentEnum.development
+    ? process.env.BLENDER_OUTPUT_LOCAL_ADDRESS
+    : process.env.BLENDER_OUTPUT_SERVER_ADDRESS;
+const blenderOutputFolderPathRelative = '../../../blender_output/';
 
 exports.throwErrorTokenAlreadyRevealed = (tokenAddress) => {
   throw new Error(
