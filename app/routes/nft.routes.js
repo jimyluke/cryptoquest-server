@@ -32,4 +32,7 @@ module.exports = function (app) {
     [verifySignature, verifyIsWalletOwnsNft],
     controller.customizeNft
   );
+
+  // Fetch token data
+  app.post('/api/nfts/fetchTokenData', controller.fetchTokenData);
 };

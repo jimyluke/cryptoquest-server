@@ -159,15 +159,23 @@ exports.availableRecipes = async (req, res) => {
       ['Dawn of Man']
     );
 
+    const totalRecipesWoodlandRespite = allRecipesWoodlandRespite.rows.length;
     const remainingRecipesWoodlandRespite =
-      allRecipesWoodlandRespite.rows.length -
-      revealedRecipesWoodlandRespite.rows.length;
+      totalRecipesWoodlandRespite - revealedRecipesWoodlandRespite.rows.length;
+
+    const totalRecipesDawnOfMan = allRecipesDawnOfMan.rows.length;
     const remainingRecipesDawnOfMan =
-      allRecipesDawnOfMan.rows.length - revealedRecipesDawnOfMan.rows.length;
+      totalRecipesDawnOfMan - revealedRecipesDawnOfMan.rows.length;
 
     res.status(200).send({
-      woodlandRespite: remainingRecipesWoodlandRespite,
-      dawnOfMan: remainingRecipesDawnOfMan,
+      woodlandRespite: {
+        remaining: remainingRecipesWoodlandRespite,
+        total: totalRecipesWoodlandRespite,
+      },
+      dawnOfMan: {
+        remaining: remainingRecipesDawnOfMan,
+        total: totalRecipesDawnOfMan,
+      },
     });
   } catch (error) {
     console.error(error.message);
@@ -279,7 +287,7 @@ exports.revealNft = async (req, res) => {
       ]
     );
 
-    const revealedToken = revealedTokenData.rows[0];
+    const revealedToken = revealedTokenData?.rows?.[0];
 
     await pool.query(
       'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
@@ -361,6 +369,40 @@ exports.customizeNft = async (req, res) => {
 
     console.log(`Start customizing NFT ${tokenAddress}`);
     console.log(`Start changing metadata for NFT ${tokenAddress}`);
+
+    await pool.query(
+      'INSERT INTO token_names (nft_id, token_name, token_name_status) VALUES($1, $2, $3) RETURNING *',
+      [currentNft.id, tokenName, 'approved']
+    );
+
+    await pool.query(
+      'INSERT INTO characters (nft_id, token_id, constitution, strength, dexterity, wisdom, intelligence, charisma, race, sex, face_style, eye_detail, eyes, facial_hair, glasses, hair_style, hair_color, necklace, earring, nose_piercing, scar, tattoo, background) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *',
+      [
+        currentNft.id,
+        tokenId,
+        skills.constitution,
+        skills.strength,
+        skills.dexterity,
+        skills.wisdom,
+        skills.intelligence,
+        skills.charisma,
+        cosmeticTraits.race,
+        cosmeticTraits.sex,
+        cosmeticTraits.faceStyle,
+        cosmeticTraits.eyeDetail,
+        cosmeticTraits.eyes,
+        cosmeticTraits.facialHair,
+        cosmeticTraits.glasses,
+        cosmeticTraits.hairStyle,
+        cosmeticTraits.hairColor,
+        cosmeticTraits.necklace,
+        cosmeticTraits.earring,
+        cosmeticTraits.nosePiercing,
+        cosmeticTraits.scar,
+        cosmeticTraits.tattoo,
+        cosmeticTraits.background,
+      ]
+    );
 
     const blenderRender = await addBlenderRender({
       tokenId,
@@ -463,45 +505,69 @@ exports.customizeNft = async (req, res) => {
     await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
 
     await pool.query(
-      'INSERT INTO token_names (nft_id, token_name, token_name_status) VALUES($1, $2, $3) RETURNING *',
-      [currentNft.id, tokenName, 'approved']
-    );
-
-    await pool.query(
-      'INSERT INTO characters (nft_id, token_id, constitution, strength, dexterity, wisdom, intelligence, charisma, race, sex, face_style, eye_detail, eyes, facial_hair, glasses, hair_style, hair_color, necklace, earring, nose_piercing, scar, tattoo, background) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *',
-      [
-        currentNft.id,
-        tokenId,
-        skills.constitution,
-        skills.strength,
-        skills.dexterity,
-        skills.wisdom,
-        skills.intelligence,
-        skills.charisma,
-        cosmeticTraits.race,
-        cosmeticTraits.sex,
-        cosmeticTraits.faceStyle,
-        cosmeticTraits.eyeDetail,
-        cosmeticTraits.eyes,
-        cosmeticTraits.facialHair,
-        cosmeticTraits.glasses,
-        cosmeticTraits.hairStyle,
-        cosmeticTraits.hairColor,
-        cosmeticTraits.necklace,
-        cosmeticTraits.earring,
-        cosmeticTraits.nosePiercing,
-        cosmeticTraits.scar,
-        cosmeticTraits.tattoo,
-        cosmeticTraits.background,
-      ]
-    );
-
-    await pool.query(
       'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
       [currentNft.id, nftStages.customized, metadataIpfsUrl, imageIpfsUrl]
     );
 
     res.status(200).send({ success: 'Success' });
+  } catch (error) {
+    console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
+  }
+};
+
+exports.fetchTokenData = async (req, res) => {
+  try {
+    const { tokenAddress } = req.body;
+
+    const currentNft = await selectTokenByAddress(tokenAddress);
+
+    if (!currentNft) {
+      res.status(200).send({ token_name_status: null, isCustomized: false });
+      return;
+    }
+
+    const isTokenAlreadyCustomized = await checkIsTokenAlreadyCustomized(
+      currentNft.id
+    );
+
+    if (!isTokenAlreadyCustomized) {
+      res.status(200).send({
+        token_name_status: null,
+        isCustomized: isTokenAlreadyCustomized,
+      });
+      return;
+    }
+
+    const tokenNameData = await pool.query(
+      'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
+      [currentNft.id]
+    );
+
+    if (!tokenNameData || tokenNameData.rows.length === 0) {
+      res.status(200).send({
+        token_name_status: null,
+        isCustomized: isTokenAlreadyCustomized,
+      });
+      return;
+    }
+
+    const tokenNameStatus = tokenNameData.rows[0]?.token_name_status;
+
+    if (!tokenNameStatus) {
+      res.status(200).send({
+        token_name_status: null,
+        isCustomized: isTokenAlreadyCustomized,
+      });
+      return;
+    }
+
+    res.status(200).send({
+      token_name_status: tokenNameStatus,
+      isCustomized: isTokenAlreadyCustomized,
+    });
   } catch (error) {
     console.error(error.message);
     res.status(404).send({

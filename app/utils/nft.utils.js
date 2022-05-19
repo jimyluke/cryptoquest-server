@@ -49,7 +49,7 @@ exports.checkIsTokenAlreadyRevealed = async (tokenAddress) => {
 
 exports.checkIsTokenAlreadyCustomized = async (tokenId) => {
   const isTokenAlreadyCustomizedQuery = await pool.query(
-    'SELECT EXISTS(SELECT * FROM characters WHERE nft_id = $1)',
+    'SELECT EXISTS(SELECT 1 FROM characters WHERE nft_id = $1)',
     [tokenId]
   );
 
@@ -92,6 +92,15 @@ exports.selectTokenByAddress = async (tokenAddress) => {
   );
   const token = tokenQuery?.rows?.[0];
   return token;
+};
+
+exports.selectCharacterByTokenId = async (tokenId) => {
+  const characterQuery = await pool.query(
+    'SELECT * FROM characters WHERE nft_id = $1',
+    [tokenId]
+  );
+  const character = characterQuery?.rows?.[0];
+  return character;
 };
 
 exports.renderTokenFromBlender = async (
@@ -164,9 +173,7 @@ exports.renderTokenFromBlender = async (
     console.log('BLENDER STDERR:', stderr);
     const renderedImageExist = stderr.includes('exists in Tokens Directory');
     if (!renderedImageExist) {
-      throw new Error(
-        'Render error. Impossible to render character with selected traits'
-      );
+      throw new Error(stderr);
     }
   }
 

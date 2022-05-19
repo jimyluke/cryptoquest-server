@@ -45,7 +45,4 @@ module.exports = function (app) {
 
   // Rename token name
   app.post('/api/tokenNames/rename', controller.renameTokenName);
-
-  // Fetch last nft name
-  app.post('/api/tokenNames/fetchLast', controller.fetchLastTokenName);
 };
