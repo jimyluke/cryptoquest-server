@@ -3,8 +3,36 @@ const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 const retry = require('async-retry');
 const { TOKEN_PROGRAM_ID } = require('@solana/spl-token');
+const redis = require('redis');
 
 const { getSolanaConnection } = require('../utils/solana');
+
+// Verify is redis server running
+exports.verifyRedisRunning = async (req, res, next) => {
+  try {
+    const client = redis.createClient({
+      url: process.env.REDIS_URL,
+    });
+
+    await client.connect();
+    const pong = await client.ping();
+
+    if (pong !== 'PONG') {
+      return res.status(405).send({
+        message: 'Network error',
+      });
+    }
+
+    await client.quit();
+
+    next();
+  } catch (error) {
+    console.log(error.message);
+    res.status(405).send({
+      message: 'Network error',
+    });
+  }
+};
 
 // Verify wallet signature from website
 exports.verifySignature = async (req, res, next) => {
@@ -32,7 +60,9 @@ exports.verifySignature = async (req, res, next) => {
     next();
   } catch (error) {
     console.log(error.message);
-    res.status(405).send(error.message);
+    res.status(405).send({
+      message: error.message,
+    });
   }
 };
 
@@ -95,29 +125,38 @@ exports.verifyIsWalletOwnsNft = async (req, res, next) => {
     next();
   } catch (error) {
     console.log(error.message);
-    res.status(405).send(error.message);
+    res.status(405).send({
+      message: error.message,
+    });
   }
 };
 
 // Verify JWT token for users from Admin UI
 exports.verifyJWTToken = (req, res, next) => {
-  let token = req.headers['x-access-token'];
+  try {
+    let token = req.headers['x-access-token'];
 
-  if (!token) {
-    return res.status(403).send({
-      message: 'No token provided',
-    });
-  }
-
-  jwt.verify(token, process.env.TOKEN_SECRET, async (err, decoded) => {
-    if (err) {
-      return res.status(401).send({
-        message: 'Session expired',
+    if (!token) {
+      return res.status(403).send({
+        message: 'No token provided',
       });
     }
 
-    req.userId = decoded.id;
+    jwt.verify(token, process.env.TOKEN_SECRET, async (err, decoded) => {
+      if (err) {
+        return res.status(401).send({
+          message: 'Session expired',
+        });
+      }
 
-    next();
-  });
+      req.userId = decoded.id;
+
+      next();
+    });
+  } catch (error) {
+    console.log(error.message);
+    res.status(405).send({
+      message: error.message,
+    });
+  }
 };

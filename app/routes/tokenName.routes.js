@@ -1,5 +1,5 @@
 const controller = require('../controllers/tokenName.controller');
-const { verifyJWTToken } = require('../middleware');
+const { verifyJWTToken, verifyRedisRunning } = require('../middleware');
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -22,19 +22,23 @@ module.exports = function (app) {
   // Approve token name
   app.post(
     '/api/tokenNames/approve',
-    verifyJWTToken,
+    [verifyRedisRunning, verifyJWTToken],
     controller.approveTokenName
   );
 
   // Reject token name
   app.post(
     '/api/tokenNames/reject',
-    verifyJWTToken,
+    [verifyRedisRunning, verifyJWTToken],
     controller.rejectTokenName
   );
 
   // Edit token name
-  app.post('/api/tokenNames/edit', verifyJWTToken, controller.editTokenName);
+  app.post(
+    '/api/tokenNames/edit',
+    [verifyRedisRunning, verifyJWTToken],
+    controller.editTokenName
+  );
 
   // Reject token name
   app.post(

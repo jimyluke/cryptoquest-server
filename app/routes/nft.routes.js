@@ -1,5 +1,9 @@
 const controller = require('../controllers/nft.controller');
-const { verifySignature, verifyIsWalletOwnsNft } = require('../middleware');
+const {
+  verifySignature,
+  verifyIsWalletOwnsNft,
+  verifyRedisRunning,
+} = require('../middleware');
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -22,14 +26,14 @@ module.exports = function (app) {
   // Reveal nft
   app.post(
     '/api/reveal',
-    [verifySignature, verifyIsWalletOwnsNft],
+    [verifyRedisRunning, verifySignature, verifyIsWalletOwnsNft],
     controller.revealNft
   );
 
   // Customize nft
   app.post(
     '/api/customize',
-    [verifySignature, verifyIsWalletOwnsNft],
+    [verifyRedisRunning, verifySignature, verifyIsWalletOwnsNft],
     controller.customizeNft
   );
 
