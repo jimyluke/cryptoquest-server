@@ -20,6 +20,7 @@
     "@bull-board/api": "^3.11.0",
     "@bull-board/express": "^3.11.0",
     "@metaplex-foundation/mpl-token-metadata": "~2.0",
+    "@nfteyez/sol-rayz": "^0.10.2",
     "@solana/spl-token": "^0.2.0",
     "@solana/web3.js": "^1.41.3",
     "async-retry": "^1.3.3",

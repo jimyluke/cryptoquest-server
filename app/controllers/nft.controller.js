@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const retry = require('async-retry');
 const Jimp = require('jimp');
+const {
+  getParsedNftAccountsByOwner,
+  resolveToWalletAddress,
+} = require('@nfteyez/sol-rayz');
+const axios = require('axios');
 
 const pool = require('../config/db.config');
 const {
@@ -22,6 +27,7 @@ const {
   updateMetadataUrlSolana,
   fetchOldMetadata,
   throwErrorNoMetadata,
+  getSolanaConnection,
 } = require('../utils/solana');
 const {
   getHeroTierImageFromIpfs,
@@ -518,56 +524,145 @@ exports.customizeNft = async (req, res) => {
   }
 };
 
-exports.fetchTokenData = async (req, res) => {
-  try {
-    const { tokenAddress } = req.body;
+exports.fetchTokenData = async (tokenAddress) => {
+  const currentNft = await selectTokenByAddress(tokenAddress);
 
-    const currentNft = await selectTokenByAddress(tokenAddress);
+  if (!currentNft) {
+    return { token_name_status: null, isCustomized: false };
+  }
 
-    if (!currentNft) {
-      res.status(200).send({ token_name_status: null, isCustomized: false });
-      return;
-    }
+  const isTokenAlreadyCustomized = await checkIsTokenAlreadyCustomized(
+    currentNft.id
+  );
 
-    const isTokenAlreadyCustomized = await checkIsTokenAlreadyCustomized(
-      currentNft.id
-    );
-
-    if (!isTokenAlreadyCustomized) {
-      res.status(200).send({
-        token_name_status: null,
-        isCustomized: isTokenAlreadyCustomized,
-      });
-      return;
-    }
-
-    const tokenNameData = await pool.query(
-      'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
-      [currentNft.id]
-    );
-
-    if (!tokenNameData || tokenNameData.rows.length === 0) {
-      res.status(200).send({
-        token_name_status: null,
-        isCustomized: isTokenAlreadyCustomized,
-      });
-      return;
-    }
-
-    const tokenNameStatus = tokenNameData.rows[0]?.token_name_status;
-
-    if (!tokenNameStatus) {
-      res.status(200).send({
-        token_name_status: null,
-        isCustomized: isTokenAlreadyCustomized,
-      });
-      return;
-    }
-
-    res.status(200).send({
-      token_name_status: tokenNameStatus,
+  if (!isTokenAlreadyCustomized) {
+    return {
+      token_name_status: null,
       isCustomized: isTokenAlreadyCustomized,
+    };
+  }
+
+  const tokenNameData = await pool.query(
+    'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
+    [currentNft.id]
+  );
+
+  if (!tokenNameData || tokenNameData.rows.length === 0) {
+    return {
+      token_name_status: null,
+      isCustomized: isTokenAlreadyCustomized,
+    };
+  }
+
+  const tokenNameStatus = tokenNameData.rows[0]?.token_name_status;
+
+  if (!tokenNameStatus) {
+    return {
+      token_name_status: null,
+      isCustomized: isTokenAlreadyCustomized,
+    };
+  }
+
+  return {
+    token_name_status: tokenNameStatus,
+    isCustomized: isTokenAlreadyCustomized,
+  };
+};
+
+const getMetaData = async (tokenData) => {
+  return await retry(
+    async () => {
+      let metaData = {};
+      if (tokenData) {
+        const metaDataUri = tokenData.data?.uri;
+
+        const response = await axios.get(metaDataUri);
+
+        if (response && response.data.image) {
+          metaData = response.data;
+        }
+      }
+      return metaData;
+    },
+    {
+      retries: 5,
+    }
+  );
+};
+
+exports.fetchNfts = async (req, res) => {
+  try {
+    const { publicKey, tokenAddress } = req.body;
+
+    const connection = await getSolanaConnection();
+
+    const publicAddress = await retry(
+      async () => {
+        return await resolveToWalletAddress({
+          text: publicKey,
+        });
+      },
+      {
+        retries: 5,
+      }
+    );
+
+    if (!publicAddress) {
+      throw new Error('Network error, please try again');
+    }
+
+    const nftArray = await retry(
+      async () => {
+        return await getParsedNftAccountsByOwner({
+          publicAddress,
+          connection,
+          sanitize: true,
+        });
+      },
+      {
+        retries: 5,
+      }
+    );
+
+    if (!nftArray) {
+      throw new Error('Network error, please try again');
+    }
+
+    const cryptoquestNfts = nftArray.filter((nft) => {
+      if (tokenAddress) {
+        return (
+          nft.updateAuthority === process.env.UPDATE_AUTHORITY &&
+          nft.mint === tokenAddress
+        );
+      } else {
+        return nft.updateAuthority === process.env.UPDATE_AUTHORITY;
+      }
     });
+
+    const cryptoquestNftsWithMetadata = cryptoquestNfts.map((nft) => ({
+      ...nft,
+      data: {
+        ...nft.data,
+        customMetaData: {},
+        token_name_status: null,
+        isCustomized: false,
+      },
+    }));
+
+    for (const tokenData of cryptoquestNftsWithMetadata) {
+      const metaData = await getMetaData(tokenData);
+      if (metaData) {
+        tokenData.data.customMetaData = metaData;
+      }
+      const tokenDataDB = await this.fetchTokenData({
+        tokenAddress: tokenData.mint,
+      });
+
+      tokenData.data.token_name_status = tokenDataDB.token_name_status;
+      tokenData.data.isCustomized = tokenDataDB.isCustomized;
+    }
+
+    res.status(200).send({ nfts: cryptoquestNftsWithMetadata });
   } catch (error) {
     console.error(error.message);
     res.status(404).send({

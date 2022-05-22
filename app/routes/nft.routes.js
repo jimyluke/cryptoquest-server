@@ -37,6 +37,6 @@ module.exports = function (app) {
     controller.customizeNft
   );
 
-  // Fetch token data
-  app.post('/api/nfts/fetchTokenData', controller.fetchTokenData);
+  // Fetch nfts
+  app.post('/api/nfts', controller.fetchNfts);
 };

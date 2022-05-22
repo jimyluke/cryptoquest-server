@@ -17,9 +17,9 @@ exports.verifyRedisRunning = async (req, res, next) => {
     await client.connect();
     const pong = await client.ping();
 
-    if (pong !== 'PONG') {
+    if (!pong || pong !== 'PONG') {
       return res.status(405).send({
-        message: 'Network error',
+        message: 'Network error. Please try again later.',
       });
     }
 
@@ -27,9 +27,9 @@ exports.verifyRedisRunning = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.log(error.message);
+    console.error('verifyRedisRunning:', error.message);
     res.status(405).send({
-      message: 'Network error',
+      message: 'Network error. Please try again later.',
     });
   }
 };
@@ -59,7 +59,7 @@ exports.verifySignature = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.status(405).send({
       message: error.message,
     });
@@ -124,7 +124,7 @@ exports.verifyIsWalletOwnsNft = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.status(405).send({
       message: error.message,
     });
@@ -154,7 +154,7 @@ exports.verifyJWTToken = (req, res, next) => {
       next();
     });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.status(405).send({
       message: error.message,
     });
