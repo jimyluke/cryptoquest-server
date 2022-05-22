@@ -649,18 +649,34 @@ exports.fetchNfts = async (req, res) => {
       },
     }));
 
-    for (const tokenData of cryptoquestNftsWithMetadata) {
-      const metaData = await getMetaData(tokenData);
+    // eslint-disable-next-line no-undef
+    const nftsMetaData = await Promise.all(
+      cryptoquestNftsWithMetadata.map(async (tokenData) => {
+        const metaData = await getMetaData(tokenData);
+        return metaData;
+      })
+    );
+
+    // eslint-disable-next-line no-undef
+    const nftsDataDB = await Promise.all(
+      cryptoquestNftsWithMetadata.map(async (tokenData) => {
+        const tokenDataDB = await this.fetchTokenData({
+          tokenAddress: tokenData.mint,
+        });
+        return tokenDataDB;
+      })
+    );
+
+    cryptoquestNftsWithMetadata.forEach(async (tokenData, index) => {
+      const metaData = nftsMetaData[index];
       if (metaData) {
         tokenData.data.customMetaData = metaData;
       }
-      const tokenDataDB = await this.fetchTokenData({
-        tokenAddress: tokenData.mint,
-      });
+      const tokenDataDB = nftsDataDB[index];
 
       tokenData.data.token_name_status = tokenDataDB.token_name_status;
       tokenData.data.isCustomized = tokenDataDB.isCustomized;
-    }
+    });
 
     res.status(200).send({ nfts: cryptoquestNftsWithMetadata });
   } catch (error) {
