@@ -37,6 +37,7 @@ const {
   throwErrorTokenHasNotBeenRevealed,
   checkIsTokenAlreadyCustomized,
   throwErrorTokenAlreadyCustomized,
+  selectCharacterByTokenId,
 } = require('../utils/nft.utils');
 const { addBlenderRender } = require('../queues/blenderRender.queue');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
@@ -323,6 +324,243 @@ exports.revealNft = async (req, res) => {
   }
 };
 
+const startCustomization = async (
+  tokenId,
+  cosmeticTraits,
+  currentNft,
+  tokenAddress,
+  oldMetadata,
+  tokenName,
+  skills
+) => {
+  const blenderRender = await addBlenderRender({
+    tokenId,
+    cosmeticTraits,
+    heroTier: currentNft?.hero_tier,
+    tokenAddress,
+  });
+  const renderResult = await blenderRender.finished();
+  console.log(renderResult);
+
+  const image = path.resolve(
+    __dirname,
+    `${blenderOutputFolderPath}${tokenId}.png` // TODO: change extension
+  );
+
+  const imageJpeg = path.resolve(
+    __dirname,
+    `${blenderOutputFolderPath}${tokenId}.jpeg` // TODO: change extension
+  );
+
+  Jimp.read(image, (error, image) => {
+    if (error) {
+      console.error(error);
+    } else {
+      image.write(imageJpeg);
+    }
+  });
+
+  const uploadImageIpfs = await addUploadIpfs({
+    type: uploadIpfsType.image,
+    pinataApiKey,
+    pinataSecretApiKey,
+    pinataGateway,
+    data: imageJpeg,
+    tokenAddress,
+    stage: nftStages.customized,
+  });
+  const uploadImageIpfsResult = await uploadImageIpfs.finished();
+  console.log(uploadImageIpfsResult);
+
+  const { imageIpfsHash, imageIpfsUrl } = uploadImageIpfsResult;
+
+  const metadataImage = path.resolve(
+    __dirname,
+    `${metadataFolderPath}${imageIpfsHash}.jpeg` // TODO: change extension
+  );
+
+  fs.copyFile(imageJpeg, metadataImage, (err) => {
+    if (err) throw err;
+  });
+
+  const attributes = Object.entries(cosmeticTraits).map((item) => ({
+    trait_type: cosmeticTraitsMap[item[0]],
+    value: item[1],
+  }));
+
+  const metadata = {
+    ...oldMetadata,
+    image: imageIpfsUrl,
+    external_url: `${process.env.WEBSITE_URL}`,
+    token_name: tokenName,
+    constitution: skills?.constitution,
+    strength: skills?.strength,
+    dexterity: skills?.dexterity,
+    wisdom: skills?.wisdom,
+    intelligence: skills?.intelligence,
+    charisma: skills?.charisma,
+    attributes,
+    properties: {
+      ...oldMetadata?.properties,
+      files: [
+        {
+          uri: imageIpfsUrl,
+          type: 'image/jpeg', // TODO: change extension
+        },
+      ],
+    },
+  };
+
+  const uploadJsonIpfs = await addUploadIpfs({
+    type: uploadIpfsType.json,
+    pinataApiKey,
+    pinataSecretApiKey,
+    pinataGateway,
+    data: metadata,
+    tokenAddress,
+    stage: nftStages.customized,
+  });
+  const uploadJsonIpfsResult = await uploadJsonIpfs.finished();
+  console.log(uploadJsonIpfsResult);
+
+  const { metadataIpfsUrl, metadataIpfsHash } = uploadJsonIpfsResult;
+
+  const metadataJSON = JSON.stringify(metadata, null, 2);
+  fs.writeFileSync(
+    path.resolve(__dirname, `${metadataFolderPath}${metadataIpfsHash}.json`),
+    metadataJSON
+  );
+
+  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+
+  await pool.query(
+    'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
+    [currentNft.id, nftStages.customized, metadataIpfsUrl, imageIpfsUrl]
+  );
+};
+
+exports.customizeNftFromAdminPanel = async (req, res) => {
+  try {
+    const { tokenAddress } = req.body;
+
+    const currentNft = await selectTokenByAddress(tokenAddress);
+    if (!currentNft) {
+      throw new Error(
+        `There is no token with address ${tokenAddress.slice(0, 8)}...`
+      );
+    }
+
+    const character = await selectCharacterByTokenId(currentNft.id);
+    if (!character) {
+      throw new Error(
+        `There is no character with address ${tokenAddress.slice(0, 8)}...`
+      );
+    }
+
+    const {
+      token_id,
+      constitution,
+      strength,
+      dexterity,
+      wisdom,
+      intelligence,
+      charisma,
+      race,
+      sex,
+      face_style,
+      eye_detail,
+      eyes,
+      facial_hair,
+      glasses,
+      hair_style,
+      hair_color,
+      necklace,
+      earring,
+      nose_piercing,
+      scar,
+      tattoo,
+      background,
+    } = character;
+
+    const tokenNameData = await pool.query(
+      'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
+      [currentNft.id]
+    );
+    const tokenName = tokenNameData?.rows?.[0]?.token_name;
+    if (!tokenName) {
+      throw new Error(
+        `There is no token name for nft with address ${tokenAddress.slice(
+          0,
+          8
+        )}...`
+      );
+    }
+
+    const metadataQuery = await pool.query(
+      'SELECT * FROM metadata WHERE nft_id = $1 AND stage = $2 ORDER BY updated_at DESC LIMIT 1',
+      [currentNft.id, nftStages.revealed]
+    );
+    const metadataUrl = metadataQuery?.rows?.[0]?.metadata_url;
+    if (!metadataUrl) {
+      throw new Error(
+        `There is no metadata url for nft with address ${tokenAddress.slice(
+          0,
+          8
+        )}...`
+      );
+    }
+
+    const oldMetadata = await fetchOldMetadata(tokenAddress, metadataUrl);
+    !oldMetadata && throwErrorNoMetadata(tokenAddress);
+
+    const cosmeticTraits = {
+      race,
+      sex,
+      faceStyle: face_style,
+      eyeDetail: eye_detail,
+      eyes,
+      facialHair: facial_hair,
+      glasses,
+      hairStyle: hair_style,
+      hairColor: hair_color,
+      necklace,
+      earring,
+      nosePiercing: nose_piercing,
+      scar,
+      tattoo,
+      background,
+    };
+
+    const skills = {
+      constitution,
+      strength,
+      dexterity,
+      wisdom,
+      intelligence,
+      charisma,
+    };
+
+    await startCustomization(
+      token_id,
+      cosmeticTraits,
+      currentNft,
+      tokenAddress,
+      oldMetadata,
+      tokenName,
+      skills
+    );
+
+    res.status(200).send({
+      message: `Token "${tokenAddress.slice(0, 8)}..." successfully updated`,
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
+  }
+};
+
 // Customize NFT
 exports.customizeNft = async (req, res) => {
   try {
@@ -410,109 +648,14 @@ exports.customizeNft = async (req, res) => {
       ]
     );
 
-    const blenderRender = await addBlenderRender({
+    await startCustomization(
       tokenId,
       cosmeticTraits,
-      heroTier: currentNft?.hero_tier,
+      currentNft,
       tokenAddress,
-    });
-    const renderResult = await blenderRender.finished();
-    console.log(renderResult);
-
-    const image = path.resolve(
-      __dirname,
-      `${blenderOutputFolderPath}${tokenId}.png` // TODO: change extension
-    );
-
-    const imageJpeg = path.resolve(
-      __dirname,
-      `${blenderOutputFolderPath}${tokenId}.jpeg` // TODO: change extension
-    );
-
-    Jimp.read(image, (error, image) => {
-      if (error) {
-        console.error(error);
-      } else {
-        image.write(imageJpeg);
-      }
-    });
-
-    const uploadImageIpfs = await addUploadIpfs({
-      type: uploadIpfsType.image,
-      pinataApiKey,
-      pinataSecretApiKey,
-      pinataGateway,
-      data: imageJpeg,
-      tokenAddress,
-      stage: nftStages.customized,
-    });
-    const uploadImageIpfsResult = await uploadImageIpfs.finished();
-    console.log(uploadImageIpfsResult);
-
-    const { imageIpfsHash, imageIpfsUrl } = uploadImageIpfsResult;
-
-    const metadataImage = path.resolve(
-      __dirname,
-      `${metadataFolderPath}${imageIpfsHash}.jpeg` // TODO: change extension
-    );
-
-    fs.copyFile(imageJpeg, metadataImage, (err) => {
-      if (err) throw err;
-    });
-
-    const attributes = Object.entries(cosmeticTraits).map((item) => ({
-      trait_type: cosmeticTraitsMap[item[0]],
-      value: item[1],
-    }));
-
-    const metadata = {
-      ...oldMetadata,
-      image: imageIpfsUrl,
-      external_url: `${process.env.WEBSITE_URL}`,
-      token_name: tokenName,
-      constitution: skills?.constitution,
-      strength: skills?.strength,
-      dexterity: skills?.dexterity,
-      wisdom: skills?.wisdom,
-      intelligence: skills?.intelligence,
-      charisma: skills?.charisma,
-      attributes,
-      properties: {
-        ...oldMetadata?.properties,
-        files: [
-          {
-            uri: imageIpfsUrl,
-            type: 'image/jpeg', // TODO: change extension
-          },
-        ],
-      },
-    };
-
-    const uploadJsonIpfs = await addUploadIpfs({
-      type: uploadIpfsType.json,
-      pinataApiKey,
-      pinataSecretApiKey,
-      pinataGateway,
-      data: metadata,
-      tokenAddress,
-      stage: nftStages.customized,
-    });
-    const uploadJsonIpfsResult = await uploadJsonIpfs.finished();
-    console.log(uploadJsonIpfsResult);
-
-    const { metadataIpfsUrl, metadataIpfsHash } = uploadJsonIpfsResult;
-
-    const metadataJSON = JSON.stringify(metadata, null, 2);
-    fs.writeFileSync(
-      path.resolve(__dirname, `${metadataFolderPath}${metadataIpfsHash}.json`),
-      metadataJSON
-    );
-
-    await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
-
-    await pool.query(
-      'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
-      [currentNft.id, nftStages.customized, metadataIpfsUrl, imageIpfsUrl]
+      oldMetadata,
+      tokenName,
+      skills
     );
 
     res.status(200).send({ success: 'Success' });
@@ -660,9 +803,7 @@ exports.fetchNfts = async (req, res) => {
     // eslint-disable-next-line no-undef
     const nftsDataDB = await Promise.all(
       cryptoquestNftsWithMetadata.map(async (tokenData) => {
-        const tokenDataDB = await this.fetchTokenData({
-          tokenAddress: tokenData.mint,
-        });
+        const tokenDataDB = await this.fetchTokenData(tokenData.mint);
         return tokenDataDB;
       })
     );

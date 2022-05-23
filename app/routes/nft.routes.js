@@ -3,6 +3,7 @@ const {
   verifySignature,
   verifyIsWalletOwnsNft,
   verifyRedisRunning,
+  verifyJWTToken,
 } = require('../middleware');
 
 module.exports = function (app) {
@@ -39,4 +40,11 @@ module.exports = function (app) {
 
   // Fetch nfts
   app.post('/api/nfts', controller.fetchNfts);
+
+  // Customize nft from Admin panel
+  app.post(
+    '/api/nfts/customizeFromAdminPanel',
+    [verifyRedisRunning, verifyJWTToken],
+    controller.customizeNftFromAdminPanel
+  );
 };

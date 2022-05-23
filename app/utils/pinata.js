@@ -2,7 +2,6 @@ const fs = require('fs');
 const FormData = require('form-data');
 const axios = require('axios');
 
-const { sleep } = require('./sleep');
 const { environmentEnum } = require('../variables/global.variables');
 
 exports.getPinataCredentials = () => {
@@ -67,7 +66,6 @@ exports.uploadJson = async (
       },
     }
   );
-  await sleep(500);
 
   return {
     metadataIpfsHash: IpfsHash,
@@ -109,7 +107,6 @@ exports.uploadImage = async (
       },
     }
   );
-  await sleep(500);
 
   return {
     imageIpfsHash: IpfsHash,
