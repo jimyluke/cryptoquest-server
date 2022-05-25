@@ -47,11 +47,8 @@ exports.uploadJson = async (
       name,
       keyvalues: {
         name,
-        keyvalues: {
-          name,
-          ...(tokenAddress && { tokenAddress }),
-          ...(stage && { stage }),
-        },
+        ...(tokenAddress ? { tokenAddress } : {}),
+        ...(stage ? { stage } : {}),
       },
     },
 
@@ -95,7 +92,7 @@ exports.uploadImage = async (
     name,
     keyvalues: {
       name,
-      ...(tokenAddress && { tokenAddress }),
+      ...(tokenAddress ? { tokenAddress } : {}),
     },
   });
   formData.append('pinataMetadata', pinataMetadata);

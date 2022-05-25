@@ -245,7 +245,7 @@ exports.revealNft = async (req, res) => {
         files: [
           {
             uri: imageIpfsUrl,
-            type: 'image/png', // TODO: Change extension
+            type: 'image/png',
           },
         ],
       },
