@@ -46,6 +46,7 @@ CREATE TABLE characters(
   race VARCHAR(100) NOT NULL,
   sex VARCHAR(100) NOT NULL,
   face_style VARCHAR(100) NOT NULL,
+  skin_tone VARCHAR(100) NOT NULL,
   eye_detail VARCHAR(100) NOT NULL,
   eyes VARCHAR(100) NOT NULL,
   facial_hair VARCHAR(100) NOT NULL,

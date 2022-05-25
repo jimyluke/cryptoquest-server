@@ -612,7 +612,7 @@ exports.customizeNft = async (req, res) => {
     );
 
     await pool.query(
-      'INSERT INTO characters (nft_id, token_id, constitution, strength, dexterity, wisdom, intelligence, charisma, race, sex, face_style, eye_detail, eyes, facial_hair, glasses, hair_style, hair_color, necklace, earring, nose_piercing, scar, tattoo, background) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *',
+      'INSERT INTO characters (nft_id, token_id, constitution, strength, dexterity, wisdom, intelligence, charisma, race, sex, face_style, skin_tone, eye_detail, eyes, facial_hair, glasses, hair_style, hair_color, necklace, earring, nose_piercing, scar, tattoo, background) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24) RETURNING *',
       [
         currentNft.id,
         tokenId,
@@ -625,6 +625,7 @@ exports.customizeNft = async (req, res) => {
         cosmeticTraits.race,
         cosmeticTraits.sex,
         cosmeticTraits.faceStyle,
+        cosmeticTraits.skinTone,
         cosmeticTraits.eyeDetail,
         cosmeticTraits.eyes,
         cosmeticTraits.facialHair,

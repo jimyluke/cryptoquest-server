@@ -91,6 +91,7 @@ exports.selectCharacterByTokenId = async (tokenId) => {
   return character;
 };
 
+// TODO: update new config with skin tones
 exports.renderTokenFromBlender = async (
   tokenId,
   cosmeticTraits,
