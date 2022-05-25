@@ -36,6 +36,7 @@ exports.uploadJson = async (
   pinataSecretApiKey,
   gateway,
   metadata,
+  name,
   tokenAddress,
   stage
 ) => {
@@ -43,10 +44,14 @@ exports.uploadJson = async (
 
   const requestBody = {
     pinataMetadata: {
-      name: `${tokenAddress}-${stage}`,
+      name,
       keyvalues: {
-        tokenAddress: tokenAddress,
-        stage: stage,
+        name,
+        keyvalues: {
+          name,
+          ...(tokenAddress && { tokenAddress }),
+          ...(stage && { stage }),
+        },
       },
     },
 
@@ -78,6 +83,7 @@ exports.uploadImage = async (
   pinataSecretApiKey,
   gateway,
   image,
+  name,
   tokenAddress
 ) => {
   const gatewayUrl = gateway ? gateway : `https://ipfs.io`;
@@ -86,9 +92,10 @@ exports.uploadImage = async (
   formData.append('file', fs.createReadStream(image));
 
   const pinataMetadata = JSON.stringify({
-    name: tokenAddress,
+    name,
     keyvalues: {
-      tokenAddress: tokenAddress,
+      name,
+      ...(tokenAddress && { tokenAddress }),
     },
   });
   formData.append('pinataMetadata', pinataMetadata);

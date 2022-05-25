@@ -19,7 +19,7 @@ const {
   checkIsTokenAlreadyCustomized,
 } = require('../utils/nft.utils');
 const { getPinataCredentials } = require('../utils/pinata');
-const keypair = path.resolve(__dirname, `../config/keypair.json`);
+const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
 

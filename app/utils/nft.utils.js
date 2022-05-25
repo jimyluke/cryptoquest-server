@@ -5,7 +5,7 @@ const path = require('path');
 
 const {
   heroTierImagesIpfsUrls,
-  heroTierRecipes,
+  heroTierEnum,
 } = require('../variables/nft.variables');
 const pool = require('../config/db.config');
 const { environmentEnum } = require('../variables/global.variables');
@@ -57,31 +57,19 @@ exports.checkIsTokenAlreadyCustomized = async (tokenId) => {
   return isTokenAlreadyCustomized;
 };
 
-exports.getHeroTierImageFromIpfs = (heroTierRecipe) => {
-  if (heroTierRecipe === heroTierRecipes.dawnOfManCommon) {
-    return heroTierImagesIpfsUrls.dawnOfManCommon;
-  } else if (heroTierRecipe === heroTierRecipes.dawnOfManUncommon) {
-    return heroTierImagesIpfsUrls.dawnOfManUncommon;
-  } else if (heroTierRecipe === heroTierRecipes.dawnOfManRare) {
-    return heroTierImagesIpfsUrls.dawnOfManRare;
-  } else if (heroTierRecipe === heroTierRecipes.dawnOfManEpic) {
-    return heroTierImagesIpfsUrls.dawnOfManEpic;
-  } else if (heroTierRecipe === heroTierRecipes.dawnOfManLegendary) {
-    return heroTierImagesIpfsUrls.dawnOfManLegendary;
-  } else if (heroTierRecipe === heroTierRecipes.dawnOfManMythic) {
-    return heroTierImagesIpfsUrls.dawnOfManMythic;
-  } else if (heroTierRecipe === heroTierRecipes.woodlandRespiteCommon) {
-    return heroTierImagesIpfsUrls.woodlandRespiteCommon;
-  } else if (heroTierRecipe === heroTierRecipes.woodlandRespiteUncommon) {
-    return heroTierImagesIpfsUrls.woodlandRespiteUncommon;
-  } else if (heroTierRecipe === heroTierRecipes.woodlandRespiteRare) {
-    return heroTierImagesIpfsUrls.woodlandRespiteRare;
-  } else if (heroTierRecipe === heroTierRecipes.woodlandRespiteEpic) {
-    return heroTierImagesIpfsUrls.woodlandRespiteEpic;
-  } else if (heroTierRecipe === heroTierRecipes.woodlandRespiteLegendary) {
-    return heroTierImagesIpfsUrls.woodlandRespiteLegendary;
-  } else if (heroTierRecipe === heroTierRecipes.woodlandRespiteMythic) {
-    return heroTierImagesIpfsUrls.woodlandRespiteMythic;
+exports.getHeroTierImageFromIpfs = (heroTier) => {
+  if (heroTier === heroTierEnum.common) {
+    return heroTierImagesIpfsUrls.common;
+  } else if (heroTier === heroTierEnum.uncommon) {
+    return heroTierImagesIpfsUrls.uncommon;
+  } else if (heroTier === heroTierEnum.rare) {
+    return heroTierImagesIpfsUrls.rare;
+  } else if (heroTier === heroTierEnum.epic) {
+    return heroTierImagesIpfsUrls.epic;
+  } else if (heroTier === heroTierEnum.legendary) {
+    return heroTierImagesIpfsUrls.legendary;
+  } else if (heroTier === heroTierEnum.mythic) {
+    return heroTierImagesIpfsUrls.mythic;
   }
 };
 

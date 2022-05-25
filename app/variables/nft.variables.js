@@ -1,44 +1,24 @@
 // TODO: create individual IPFS files for each hero tier
 exports.heroTierImagesIpfsUrls = {
-  dawnOfManCommon:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmRkYJsxxM6CNUMVzFWJXxyZNGtqHvv1AmmFDuZ4UFQFh5',
-  dawnOfManUncommon:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmWCwgsKwzpYgjpw5setLtwXxNSZQvsUF2qt3v9KRBcgp7',
-  dawnOfManRare:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmVu5MAysnXQWLSXq7dd1KXzMgKND8CpjW4X4g7qyCgE6s',
-  dawnOfManEpic:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmPGT4yRyPyXNFXTUgdeDyMhXdqCqmKDzLftkDZcBvb982',
-  dawnOfManLegendary:
-    'https://cryptoquest.mypinata.cloud/ipfs/Qmb15pYTnkFDbfziTKZzLb5VWNV2K6FDdUag5Mt1qmdHro',
-  dawnOfManMythic:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmTfKc4EGL3Vf49PDEXgjykv91TUP3GvWBjpuzHThrxZQQ',
-  woodlandRespiteCommon:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmXHVdZvsvmnktavEvTALH6gB4erNmzifw2vH5Lffyc38z',
-  woodlandRespiteUncommon:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmeWWz7cg92noT18bbLcJXGyY5yqyVhE3f848wjPJUV4sx',
-  woodlandRespiteRare:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmYxdimh2ABeeTPsGAFTn4VwFUaoLYwDNd7WqCvYjYeSXc',
-  woodlandRespiteEpic:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmZaFCzTdtS4haawTSQqAYZqEqfGCMKC9GZ3GhxBwkx5T7',
-  woodlandRespiteLegendary:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmRirTAWGvUX37L7NGtXJaoipC3aRJttES57HDBHczCiEA',
-  woodlandRespiteMythic:
-    'https://cryptoquest.mypinata.cloud/ipfs/QmUA22PWASn6Zg4aW9hNgyCfAYb5UKSwi2xySpN3KD8qhd',
+  common:
+    'https://cryptoquest.mypinata.cloud/ipfs/QmSKNjgqQPXhTtMhoMwYCr66gcxMvZrYqtjkN52kjEseni',
+  uncommon:
+    'https://cryptoquest.mypinata.cloud/ipfs/QmYmwLxQ14FNMNk8kdHQjpgtjXhp36wyS8kNuntTYAsLRZ',
+  rare: 'https://cryptoquest.mypinata.cloud/ipfs/QmNjra7UGCnrcjwRwthaznN5oug7zSEZiABd5mgW4znSxp',
+  epic: 'https://cryptoquest.mypinata.cloud/ipfs/QmYcKiTrsbSz8bhg186F6NmhyEtV1DfHuqAqWV8cezhQj7',
+  legendary:
+    'https://cryptoquest.mypinata.cloud/ipfs/QmRw82c9RsDcECqR4iVzqek9x2ZpMLjVnsuEYD1Ey3LwiA',
+  mythic:
+    'https://cryptoquest.mypinata.cloud/ipfs/QmSWWMAv4bmUdMzz1X8uGbJbLyAGQk5tdUBw4UmiXEfotu',
 };
 
-exports.heroTierRecipes = {
-  dawnOfManCommon: 'dawn_of_man_common',
-  dawnOfManUncommon: 'dawn_of_man_uncommon',
-  dawnOfManRare: 'dawn_of_man_rare',
-  dawnOfManEpic: 'dawn_of_man_epic',
-  dawnOfManLegendary: 'dawn_of_man_legendary',
-  dawnOfManMythic: 'dawn_of_man_mythic',
-  woodlandRespiteCommon: 'woodland_respite_common',
-  woodlandRespiteUncommon: 'woodland_respite_uncommon',
-  woodlandRespiteRare: 'woodland_respite_rare',
-  woodlandRespiteEpic: 'woodland_respite_epic',
-  woodlandRespiteLegendary: 'woodland_respite_legendary',
-  woodlandRespiteMythic: 'woodland_respite_mythic',
+exports.heroTierEnum = {
+  common: 'Common',
+  uncommon: 'Uncommon',
+  rare: 'Rare',
+  epic: 'Epic',
+  legendary: 'Legendary',
+  mythic: 'Mythic',
 };
 
 exports.nftStages = {

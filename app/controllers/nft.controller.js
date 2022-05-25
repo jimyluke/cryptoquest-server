@@ -42,7 +42,7 @@ const {
 const { addBlenderRender } = require('../queues/blenderRender.queue');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { checkIsTokenNameUnique } = require('./tokenName.controller');
-const keypair = path.resolve(__dirname, `../config/keypair.json`);
+const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
 const blenderOutputFolderPath = '../../../blender_output/';
@@ -228,12 +228,7 @@ exports.revealNft = async (req, res) => {
       oldMetadataJSON
     );
 
-    const heroTierRecipePath = `${recipe
-      .toLowerCase()
-      .split(' ')
-      .join('_')}_${heroTier.toLowerCase()}`;
-
-    const imageIpfsUrl = getHeroTierImageFromIpfs(heroTierRecipePath);
+    const imageIpfsUrl = getHeroTierImageFromIpfs(heroTier);
 
     const metadata = {
       ...oldMetadata,
