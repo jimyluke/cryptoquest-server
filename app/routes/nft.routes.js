@@ -21,8 +21,8 @@ module.exports = function (app) {
     controller.checkIsTokenIdUniqueController
   );
 
-  // Load available recipes
-  app.get('/api/availableRecipes', controller.availableRecipes);
+  // Load available tomes
+  app.get('/api/availableTomes', controller.availableTomes);
 
   // Reveal nft
   app.post(

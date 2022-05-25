@@ -50,31 +50,29 @@ const blenderOutputFolderPath = '../../../blender_output/';
 const { pinataApiKey, pinataSecretApiKey, pinataGateway } =
   getPinataCredentials();
 
-const getRandomTokenFromRecipe = async (recipe) => {
+const getRandomTokenFromTome = async (tome) => {
   return await retry(
     async () => {
-      // Select all possible tokens from recipe
-      let allTokensFromRecipe;
-      if (recipe === 'Woodland Respite') {
-        allTokensFromRecipe = await pool.query(
-          'SELECT * FROM woodland_respite'
-        );
-      } else if (recipe === 'Dawn of Man') {
-        allTokensFromRecipe = await pool.query('SELECT * FROM dawn_of_man');
+      // Select all possible tokens from tome
+      let allTokensFromTome;
+      if (tome === 'Woodland Respite') {
+        allTokensFromTome = await pool.query('SELECT * FROM woodland_respite');
+      } else if (tome === 'Dawn of Man') {
+        allTokensFromTome = await pool.query('SELECT * FROM dawn_of_man');
       }
 
-      // Select all already revealed tokens from recipe
-      const revealedTokensFromRecipe = await pool.query(
-        'SELECT * FROM tokens WHERE recipe = $1',
-        [recipe]
+      // Select all already revealed tokens from tome
+      const revealedTokensFromTome = await pool.query(
+        'SELECT * FROM tokens WHERE tome = $1',
+        [tome]
       );
 
       const allTokenNumbers = Array.from(
-        { length: allTokensFromRecipe?.rows.length },
+        { length: allTokensFromTome?.rows.length },
         (_, i) => i + 1
       );
 
-      const revealedTokenNumbers = revealedTokensFromRecipe?.rows.map(
+      const revealedTokenNumbers = revealedTokensFromTome?.rows.map(
         (item) => item?.token_number
       );
       // eslint-disable-next-line no-undef
@@ -100,7 +98,7 @@ const getRandomTokenFromRecipe = async (recipe) => {
         stat_points: statPoints,
         cosmetic_points: cosmeticPoints,
         hero_tier: heroTier,
-      } = allTokensFromRecipe.rows.find(
+      } = allTokensFromTome.rows.find(
         (item) => item?.token_number === selectedTokenNumber
       );
 
@@ -149,39 +147,39 @@ exports.checkIsTokenIdUniqueController = async (req, res) => {
   }
 };
 
-// Check available recipes
-exports.availableRecipes = async (req, res) => {
+// Check available tomes
+exports.availableTomes = async (req, res) => {
   try {
-    const allRecipesWoodlandRespite = await pool.query(
+    const allTomesWoodlandRespite = await pool.query(
       'SELECT * FROM woodland_respite'
     );
-    const allRecipesDawnOfMan = await pool.query('SELECT * FROM dawn_of_man');
+    const allTomesDawnOfMan = await pool.query('SELECT * FROM dawn_of_man');
 
-    const revealedRecipesWoodlandRespite = await pool.query(
-      'SELECT * FROM tokens WHERE recipe = $1',
+    const revealedTomesWoodlandRespite = await pool.query(
+      'SELECT * FROM tokens WHERE tome = $1',
       ['Woodland Respite']
     );
-    const revealedRecipesDawnOfMan = await pool.query(
-      'SELECT * FROM tokens WHERE recipe = $1',
+    const revealedTomesDawnOfMan = await pool.query(
+      'SELECT * FROM tokens WHERE tome = $1',
       ['Dawn of Man']
     );
 
-    const totalRecipesWoodlandRespite = allRecipesWoodlandRespite.rows.length;
-    const remainingRecipesWoodlandRespite =
-      totalRecipesWoodlandRespite - revealedRecipesWoodlandRespite.rows.length;
+    const totalTomesWoodlandRespite = allTomesWoodlandRespite.rows.length;
+    const remainingTomesWoodlandRespite =
+      totalTomesWoodlandRespite - revealedTomesWoodlandRespite.rows.length;
 
-    const totalRecipesDawnOfMan = allRecipesDawnOfMan.rows.length;
-    const remainingRecipesDawnOfMan =
-      totalRecipesDawnOfMan - revealedRecipesDawnOfMan.rows.length;
+    const totalTomesDawnOfMan = allTomesDawnOfMan.rows.length;
+    const remainingTomesDawnOfMan =
+      totalTomesDawnOfMan - revealedTomesDawnOfMan.rows.length;
 
     res.status(200).send({
       woodlandRespite: {
-        remaining: remainingRecipesWoodlandRespite,
-        total: totalRecipesWoodlandRespite,
+        remaining: remainingTomesWoodlandRespite,
+        total: totalTomesWoodlandRespite,
       },
       dawnOfMan: {
-        remaining: remainingRecipesDawnOfMan,
-        total: totalRecipesDawnOfMan,
+        remaining: remainingTomesDawnOfMan,
+        total: totalTomesDawnOfMan,
       },
     });
   } catch (error) {
@@ -195,8 +193,7 @@ exports.availableRecipes = async (req, res) => {
 // Reveal Nft
 exports.revealNft = async (req, res) => {
   try {
-    const { tokenAddress, metadataUri, mintName, mintNumber, recipe } =
-      req.body;
+    const { tokenAddress, metadataUri, mintName, mintNumber, tome } = req.body;
 
     const oldMetadata = await fetchOldMetadata(tokenAddress, metadataUri);
     !oldMetadata && throwErrorNoMetadata(tokenAddress);
@@ -217,7 +214,7 @@ exports.revealNft = async (req, res) => {
       statTier,
       cosmeticTier,
       heroTier,
-    } = await getRandomTokenFromRecipe(recipe);
+    } = await getRandomTokenFromTome(tome);
 
     console.log(`Start changing metadata for NFT ${tokenAddress}`);
 
@@ -234,7 +231,7 @@ exports.revealNft = async (req, res) => {
       ...oldMetadata,
       image: imageIpfsUrl,
       external_url: `${process.env.WEBSITE_URL}`,
-      recipe,
+      tome,
       stat_points: statPoints,
       cosmetic_points: cosmeticPoints,
       stat_tier: statTier,
@@ -274,11 +271,11 @@ exports.revealNft = async (req, res) => {
     await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
 
     const revealedTokenData = await pool.query(
-      'INSERT INTO tokens (token_address, mint_name, recipe, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      'INSERT INTO tokens (token_address, mint_name, tome, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
       [
         tokenAddress,
         mintName,
-        recipe,
+        tome,
         mintNumber,
         tokenNumber,
         statPoints,

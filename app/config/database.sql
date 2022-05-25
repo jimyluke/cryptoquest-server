@@ -15,7 +15,7 @@ CREATE TABLE tokens(
   id SERIAL PRIMARY KEY,
   token_address VARCHAR(255) NOT NULL UNIQUE,
   mint_name VARCHAR(255) NOT NULL,
-  recipe VARCHAR(100) NOT NULL,
+  tome VARCHAR(100) NOT NULL,
   mint_number INT NOT NULL,
   token_number INT NOT NULL,
   stat_points INT NOT NULL,
@@ -84,7 +84,7 @@ CREATE TRIGGER set_timestamp BEFORE
 UPDATE
   ON token_names FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 
--- Shuffled tokens from "Woodland Respite" recipe
+-- Shuffled tokens from "Woodland Respite" tome
 CREATE TABLE woodland_respite(
   token_number INT PRIMARY KEY NOT NULL,
   cosmetic_points INT NOT NULL,
@@ -102,7 +102,7 @@ CREATE TRIGGER set_timestamp BEFORE
 UPDATE
   ON woodland_respite FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 
--- Shuffled tokens from "Dawn of Man" recipe
+-- Shuffled tokens from "Dawn of Man" tome
 CREATE TABLE dawn_of_man(
   token_number INT PRIMARY KEY NOT NULL,
   cosmetic_points INT NOT NULL,
