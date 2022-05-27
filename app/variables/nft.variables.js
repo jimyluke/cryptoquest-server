@@ -31,6 +31,7 @@ exports.cosmeticTraitsMap = {
   race: 'Race',
   sex: 'Sex',
   faceStyle: 'Face Style',
+  skinTone: 'Skin Tone',
   eyeDetail: 'Eye Detail',
   eyes: 'Eyes',
   facialHair: 'Facial Hair',
