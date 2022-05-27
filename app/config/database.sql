@@ -151,3 +151,18 @@ CREATE TABLE metadata(
 CREATE TRIGGER set_timestamp BEFORE
 UPDATE
   ON metadata FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+
+-- Table for storing errors
+CREATE TABLE errors(
+  id SERIAL PRIMARY KEY,
+  token_address VARCHAR(255),
+  function VARCHAR(255),
+  message VARCHAR(255),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create trigger "updated_at" for "errors" table
+CREATE TRIGGER set_timestamp BEFORE
+UPDATE
+  ON errors FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();

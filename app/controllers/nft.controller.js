@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const retry = require('async-retry');
-const Jimp = require('jimp');
 const {
   getParsedNftAccountsByOwner,
   resolveToWalletAddress,
@@ -38,6 +37,8 @@ const {
   checkIsTokenAlreadyCustomized,
   throwErrorTokenAlreadyCustomized,
   selectCharacterByTokenId,
+  checkIsSkillsValid,
+  checkIsTraitsValid,
 } = require('../utils/nft.utils');
 const { addBlenderRender } = require('../queues/blenderRender.queue');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
@@ -309,6 +310,10 @@ exports.revealNft = async (req, res) => {
       cosmeticTier,
     });
   } catch (error) {
+    await pool.query(
+      'INSERT INTO errors (token_address, function, message) VALUES($1, $2, $3)',
+      [req.body.tokenAddress, 'revealNft', error.message.substr(0, 250)]
+    );
     console.error(error.message);
     res.status(404).send({
       message: error.message,
@@ -325,6 +330,8 @@ const startCustomization = async (
   tokenName,
   skills
 ) => {
+  console.log(`Start customizing NFT ${tokenAddress}`);
+
   const blenderRender = await addBlenderRender({
     tokenId,
     cosmeticTraits,
@@ -339,25 +346,12 @@ const startCustomization = async (
     `${blenderOutputFolderPath}${tokenId}.png` // TODO: change extension
   );
 
-  const imageJpeg = path.resolve(
-    __dirname,
-    `${blenderOutputFolderPath}${tokenId}.jpeg` // TODO: change extension
-  );
-
-  Jimp.read(image, (error, image) => {
-    if (error) {
-      console.error(error);
-    } else {
-      image.write(imageJpeg);
-    }
-  });
-
   const uploadImageIpfs = await addUploadIpfs({
     type: uploadIpfsType.image,
     pinataApiKey,
     pinataSecretApiKey,
     pinataGateway,
-    data: imageJpeg,
+    data: image,
     tokenAddress,
     stage: nftStages.customized,
   });
@@ -366,12 +360,12 @@ const startCustomization = async (
 
   const { imageIpfsHash, imageIpfsUrl } = uploadImageIpfsResult;
 
-  const metadataImage = path.resolve(
+  const metadataImagePath = path.resolve(
     __dirname,
-    `${metadataFolderPath}${imageIpfsHash}.jpeg` // TODO: change extension
+    `${metadataFolderPath}${imageIpfsHash}.png` // TODO: change extension
   );
 
-  fs.copyFile(imageJpeg, metadataImage, (err) => {
+  fs.copyFile(image, metadataImagePath, (err) => {
     if (err) throw err;
   });
 
@@ -397,7 +391,7 @@ const startCustomization = async (
       files: [
         {
           uri: imageIpfsUrl,
-          type: 'image/jpeg', // TODO: change extension
+          type: 'image/png', // TODO: change extension
         },
       ],
     },
@@ -532,6 +526,13 @@ exports.customizeNftFromAdminPanel = async (req, res) => {
       charisma,
     };
 
+    res.status(200).send({
+      message: `Token "${tokenAddress.slice(
+        0,
+        8
+      )}..." successfully added into queue for rendering`,
+    });
+
     await startCustomization(
       token_id,
       cosmeticTraits,
@@ -541,11 +542,15 @@ exports.customizeNftFromAdminPanel = async (req, res) => {
       tokenName,
       skills
     );
-
-    res.status(200).send({
-      message: `Token "${tokenAddress.slice(0, 8)}..." successfully updated`,
-    });
   } catch (error) {
+    await pool.query(
+      'INSERT INTO errors (token_address, function, message) VALUES($1, $2, $3)',
+      [
+        req.body.tokenAddress,
+        'customizeNftFromAdminPanel',
+        error.message.substr(0, 250),
+      ]
+    );
     console.error(error.message);
     res.status(404).send({
       message: error.message,
@@ -603,8 +608,20 @@ exports.customizeNft = async (req, res) => {
       throwErrorTokenAlreadyCustomized(tokenAddress);
     }
 
-    console.log(`Start customizing NFT ${tokenAddress}`);
-    console.log(`Start changing metadata for NFT ${tokenAddress}`);
+    const isSkillsValid = checkIsSkillsValid(currentNft.stat_points, skills);
+    if (!isSkillsValid)
+      throw new Error(
+        'Invalid skills. You have to spend all stat points for skills'
+      );
+
+    const isTraitsValid = checkIsTraitsValid(
+      currentNft.cosmetic_points,
+      cosmeticTraits
+    );
+    if (!isTraitsValid)
+      throw new Error(
+        'Invalid cosmetic traits. You can spend no more cosmetic points than you have'
+      );
 
     await pool.query(
       'INSERT INTO token_names (nft_id, token_name, token_name_status) VALUES($1, $2, $3) RETURNING *',
@@ -641,6 +658,8 @@ exports.customizeNft = async (req, res) => {
       ]
     );
 
+    res.status(200).send({ success: 'Success' });
+
     await startCustomization(
       tokenId,
       cosmeticTraits,
@@ -650,9 +669,11 @@ exports.customizeNft = async (req, res) => {
       tokenName,
       skills
     );
-
-    res.status(200).send({ success: 'Success' });
   } catch (error) {
+    await pool.query(
+      'INSERT INTO errors (token_address, function, message) VALUES($1, $2, $3)',
+      [req.body.tokenAddress, 'customizeNft', error.message.substr(0, 250)]
+    );
     console.error(error.message);
     res.status(404).send({
       message: error.message,

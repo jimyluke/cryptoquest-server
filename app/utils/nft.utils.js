@@ -6,6 +6,7 @@ const path = require('path');
 const {
   heroTierImagesIpfsUrls,
   heroTierEnum,
+  cosmeticPointsForTraits,
 } = require('../variables/nft.variables');
 const pool = require('../config/db.config');
 const { environmentEnum } = require('../variables/global.variables');
@@ -120,8 +121,8 @@ exports.renderTokenFromBlender = async (
 
   const config = {
     engine: 'CYCLES',
-    width: 1000,
-    height: 1000,
+    width: 2000,
+    height: 2000,
     'NFT name': `${race}_${sex}_${faceStyle.split(' ').join('_')}`,
     'Token Id': tokenId,
     race,
@@ -169,4 +170,71 @@ exports.renderTokenFromBlender = async (
   return {
     tokenAddress,
   };
+};
+
+exports.checkIsSkillsValid = (statPoints, skills) => {
+  const totalSkills = Object.values(skills).reduce((a, b) => a + b, 0);
+
+  console.log('totalSkills', totalSkills);
+  console.log('statPoints', statPoints);
+
+  return totalSkills === statPoints ? true : false;
+};
+
+exports.checkIsTraitsValid = (cosmeticPoints, cosmeticTraits) => {
+  const {
+    sex,
+    faceStyle,
+    skinTone,
+    eyeDetail,
+    eyes,
+    facialHair,
+    glasses,
+    hairStyle,
+    hairColor,
+    necklace,
+    earring,
+    nosePiercing,
+    scar,
+    tattoo,
+    background,
+  } = cosmeticTraits;
+
+  const sexCP = cosmeticPointsForTraits.sexes[sex];
+  const faceStyleCP = cosmeticPointsForTraits.faceStyles[faceStyle];
+  const skinToneCP = cosmeticPointsForTraits.skinTones[skinTone];
+  const eyeDetailCP = cosmeticPointsForTraits.eyeDetails[eyeDetail];
+  const eyesCP = cosmeticPointsForTraits.eyes[eyes];
+  const facialHairCP = cosmeticPointsForTraits.facialHair[facialHair];
+  const glassesCP = cosmeticPointsForTraits.glasses[glasses];
+  const hairStyleCP = cosmeticPointsForTraits.hairStyles[hairStyle];
+  const hairColorCP = cosmeticPointsForTraits.hairColors[hairColor];
+  const necklaceCP = cosmeticPointsForTraits.necklaces[necklace];
+  const earringCP = cosmeticPointsForTraits.earrings[earring];
+  const nosePiercingCP = cosmeticPointsForTraits.nosePiercing[nosePiercing];
+  const scarCP = cosmeticPointsForTraits.scars[scar];
+  const tattooCP = cosmeticPointsForTraits.tattoos[tattoo];
+  const backgroundCP = cosmeticPointsForTraits.backgrounds[background];
+
+  const cosmeticPointsSpent =
+    sexCP +
+    faceStyleCP +
+    skinToneCP +
+    eyeDetailCP +
+    eyesCP +
+    facialHairCP +
+    glassesCP +
+    hairStyleCP +
+    hairColorCP +
+    necklaceCP +
+    earringCP +
+    nosePiercingCP +
+    scarCP +
+    tattooCP +
+    backgroundCP;
+
+  console.log('cosmeticPointsSpent', cosmeticPointsSpent);
+  console.log('cosmeticPoints', cosmeticPoints);
+
+  return cosmeticPointsSpent <= cosmeticPoints ? true : false;
 };
