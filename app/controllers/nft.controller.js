@@ -103,7 +103,7 @@ const getRandomTokenFromTome = async (tome) => {
         (item) => item?.token_number === selectedTokenNumber
       );
 
-      const statTier = calculateStatTier(statPoints);
+      const statTier = calculateStatTier(statPoints, tome);
       const cosmeticTier = calculateCosmeticTier(cosmeticPoints);
 
       return {

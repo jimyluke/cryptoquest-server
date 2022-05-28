@@ -10,34 +10,26 @@ exports.calculateCosmeticTier = (cosmeticPoints) => {
   }
 };
 
-exports.calculateStatTier = (statPoints) => {
-  if (statPoints >= 118) {
-    return 'Platinum';
-  } else if (statPoints >= 108 && statPoints < 118) {
-    return 'Gold';
-  } else if (statPoints >= 92 && statPoints < 108) {
-    return 'Silver';
-  } else if (statPoints >= 72 && statPoints < 92) {
-    return 'Bronze';
-  }
-};
-
-exports.calculateHeroTier = (statPoints, cosmeticPoints) => {
-  const heroTierPointsSP = (statPoints - 72) * 3 * 1.3;
-  const heroTierPointsCP = ((cosmeticPoints - 20) / 5) * 0.7;
-  const totalPoints = +(heroTierPointsSP + heroTierPointsCP).toFixed(1);
-
-  if (totalPoints >= 236) {
-    return 'Mythic';
-  } else if (totalPoints >= 205 && totalPoints < 236) {
-    return 'Legendary';
-  } else if (totalPoints >= 172 && totalPoints < 205) {
-    return 'Epic';
-  } else if (totalPoints >= 133 && totalPoints < 172) {
-    return 'Rare';
-  } else if (totalPoints >= 90 && totalPoints < 133) {
-    return 'Uncommon';
-  } else {
-    return 'Common';
+exports.calculateStatTier = (statPoints, tome) => {
+  if (tome === 'Woodland Respite') {
+    if (statPoints >= 121) {
+      return 'Platinum';
+    } else if (statPoints >= 111 && statPoints < 121) {
+      return 'Gold';
+    } else if (statPoints >= 95 && statPoints < 111) {
+      return 'Silver';
+    } else if (statPoints >= 75 && statPoints < 95) {
+      return 'Bronze';
+    }
+  } else if (tome === 'Dawn of Man') {
+    if (statPoints >= 124) {
+      return 'Platinum';
+    } else if (statPoints >= 114 && statPoints < 124) {
+      return 'Gold';
+    } else if (statPoints >= 98 && statPoints < 114) {
+      return 'Silver';
+    } else if (statPoints >= 78 && statPoints < 98) {
+      return 'Bronze';
+    }
   }
 };
