@@ -1,4 +1,4 @@
-const { renderTokenFromBlender } = require('../utils/nft.utils');
+const { renderTokenFromBlender } = require('../utils/blender.utils');
 
 exports.blenderRenderProcess = async (job, done) => {
   try {

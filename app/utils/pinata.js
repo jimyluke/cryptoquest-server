@@ -165,8 +165,6 @@ exports.uploadImage = async (
 //     }
 //     const url = `https://api.pinata.cloud/data/pinList${queryString}`;
 
-//     console.log(url);
-
 //     const { data } = await axios.get(url, {
 //       headers: {
 //         pinata_api_key: pinataApiKey,

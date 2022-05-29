@@ -149,7 +149,6 @@ const handleTokenNameStatusChange = async (
     stage: nftStages.renamed,
   });
   const uploadIpfsResult = await uploadIpfs.finished();
-  console.log(uploadIpfsResult);
   const { metadataIpfsUrl, metadataIpfsHash } = uploadIpfsResult;
 
   const metadataJSON = JSON.stringify(metadata, null, 2);

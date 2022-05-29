@@ -17,6 +17,7 @@ require('./routes/auth.routes')(app);
 require('./routes/nft.routes')(app);
 require('./routes/tokenName.routes')(app);
 require('./routes/bullBoard.routes')(app);
+require('./routes/admin.routes')(app);
 
 app.listen(port, (error) => {
   if (error) throw error;

@@ -5,28 +5,19 @@ const {
   getParsedNftAccountsByOwner,
   resolveToWalletAddress,
 } = require('@nfteyez/sol-rayz');
-const axios = require('axios');
 
 const pool = require('../config/db.config');
-const {
-  calculateStatTier,
-  calculateCosmeticTier,
-} = require('../utils/calculateTiers');
-const { randomInteger } = require('../utils/randomInteger');
 const {
   extractHashFromIpfsUrl,
   getPinataCredentials,
 } = require('../utils/pinata');
-const {
-  nftStages,
-  cosmeticTraitsMap,
-  uploadIpfsType,
-} = require('../variables/nft.variables');
+const { nftStages, uploadIpfsType } = require('../variables/nft.variables');
 const {
   updateMetadataUrlSolana,
   fetchOldMetadata,
   throwErrorNoMetadata,
   getSolanaConnection,
+  getUpdateAuthtority,
 } = require('../utils/solana');
 const {
   getHeroTierImageFromIpfs,
@@ -36,101 +27,24 @@ const {
   throwErrorTokenHasNotBeenRevealed,
   checkIsTokenAlreadyCustomized,
   throwErrorTokenAlreadyCustomized,
-  selectCharacterByTokenId,
   checkIsSkillsValid,
   checkIsTraitsValid,
+  checkIsTokenIdUnique,
+  getRandomTokenFromTome,
+  startCustomization,
+  getMetaData,
+  fetchTokenData,
 } = require('../utils/nft.utils');
-const { addBlenderRender } = require('../queues/blenderRender.queue');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { checkIsTokenNameUnique } = require('./tokenName.controller');
 const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
-const blenderOutputFolderPath = '../../../blender_output/';
 
 const { pinataApiKey, pinataSecretApiKey, pinataGateway } =
   getPinataCredentials();
 
-const getRandomTokenFromTome = async (tome) => {
-  return await retry(
-    async () => {
-      // Select all possible tokens from tome
-      let allTokensFromTome;
-      if (tome === 'Woodland Respite') {
-        allTokensFromTome = await pool.query('SELECT * FROM woodland_respite');
-      } else if (tome === 'Dawn of Man') {
-        allTokensFromTome = await pool.query('SELECT * FROM dawn_of_man');
-      }
-
-      // Select all already revealed tokens from tome
-      const revealedTokensFromTome = await pool.query(
-        'SELECT * FROM tokens WHERE tome = $1',
-        [tome]
-      );
-
-      const allTokenNumbers = Array.from(
-        { length: allTokensFromTome?.rows.length },
-        (_, i) => i + 1
-      );
-
-      const revealedTokenNumbers = revealedTokensFromTome?.rows.map(
-        (item) => item?.token_number
-      );
-      // eslint-disable-next-line no-undef
-      const revealedTokenNumbersSet = new Set(revealedTokenNumbers);
-
-      const remainingTokenNumbers = allTokenNumbers.filter(
-        (item) => !revealedTokenNumbersSet.has(item)
-      );
-
-      if (remainingTokenNumbers.length <= 0) {
-        throw new Error(`All tokens already revealed`);
-      }
-
-      const randomTokenNumberIndex = randomInteger(
-        0,
-        remainingTokenNumbers.length - 1
-      );
-
-      const selectedTokenNumber = remainingTokenNumbers[randomTokenNumberIndex];
-
-      const {
-        token_number: tokenNumber,
-        stat_points: statPoints,
-        cosmetic_points: cosmeticPoints,
-        hero_tier: heroTier,
-      } = allTokensFromTome.rows.find(
-        (item) => item?.token_number === selectedTokenNumber
-      );
-
-      const statTier = calculateStatTier(statPoints, tome);
-      const cosmeticTier = calculateCosmeticTier(cosmeticPoints);
-
-      return {
-        tokenNumber,
-        statPoints,
-        cosmeticPoints,
-        statTier,
-        cosmeticTier,
-        heroTier,
-      };
-    },
-    {
-      retries: 5,
-    }
-  );
-};
-
-const checkIsTokenIdUnique = async (tokenId) => {
-  const isTokenIdExistQuery = await pool.query(
-    'SELECT EXISTS(SELECT 1 FROM characters WHERE token_id = $1)',
-    [tokenId]
-  );
-
-  const isTokenIdExist = isTokenIdExistQuery?.rows?.[0]?.exists;
-
-  return isTokenIdExist;
-};
+const updateAuthority = getUpdateAuthtority();
 
 // Check is nft unique
 exports.checkIsTokenIdUniqueController = async (req, res) => {
@@ -206,8 +120,6 @@ exports.revealNft = async (req, res) => {
       throwErrorTokenAlreadyRevealed(tokenAddress);
     }
 
-    console.log(`Start revealing NFT ${tokenAddress}`);
-
     const {
       tokenNumber,
       statPoints,
@@ -216,8 +128,6 @@ exports.revealNft = async (req, res) => {
       cosmeticTier,
       heroTier,
     } = await getRandomTokenFromTome(tome);
-
-    console.log(`Start changing metadata for NFT ${tokenAddress}`);
 
     const oldMetadataJSON = JSON.stringify(oldMetadata, null, 2);
     const metadataUrlHash = extractHashFromIpfsUrl(metadataUri);
@@ -259,7 +169,6 @@ exports.revealNft = async (req, res) => {
       stage: nftStages.revealed,
     });
     const uploadIpfsResult = await uploadIpfs.finished();
-    console.log(uploadIpfsResult);
 
     const { metadataIpfsUrl, metadataIpfsHash } = uploadIpfsResult;
 
@@ -299,8 +208,6 @@ exports.revealNft = async (req, res) => {
       [revealedToken.id, nftStages.revealed, metadataIpfsUrl, imageIpfsUrl]
     );
 
-    console.log(`NFT ${tokenAddress} has been written to the database`);
-
     res.status(200).send({
       tokenAddress,
       statPoints,
@@ -313,245 +220,6 @@ exports.revealNft = async (req, res) => {
     await pool.query(
       'INSERT INTO errors (token_address, function, message) VALUES($1, $2, $3)',
       [req.body.tokenAddress, 'revealNft', error.message.substr(0, 250)]
-    );
-    console.error(error.message);
-    res.status(404).send({
-      message: error.message,
-    });
-  }
-};
-
-const startCustomization = async (
-  tokenId,
-  cosmeticTraits,
-  currentNft,
-  tokenAddress,
-  oldMetadata,
-  tokenName,
-  skills
-) => {
-  console.log(`Start customizing NFT ${tokenAddress}`);
-
-  const blenderRender = await addBlenderRender({
-    tokenId,
-    cosmeticTraits,
-    heroTier: currentNft?.hero_tier,
-    tokenAddress,
-  });
-  const renderResult = await blenderRender.finished();
-  console.log(renderResult);
-
-  const image = path.resolve(
-    __dirname,
-    `${blenderOutputFolderPath}${tokenId}.png` // TODO: change extension
-  );
-
-  const uploadImageIpfs = await addUploadIpfs({
-    type: uploadIpfsType.image,
-    pinataApiKey,
-    pinataSecretApiKey,
-    pinataGateway,
-    data: image,
-    tokenAddress,
-    stage: nftStages.customized,
-  });
-  const uploadImageIpfsResult = await uploadImageIpfs.finished();
-  console.log(uploadImageIpfsResult);
-
-  const { imageIpfsHash, imageIpfsUrl } = uploadImageIpfsResult;
-
-  const metadataImagePath = path.resolve(
-    __dirname,
-    `${metadataFolderPath}${imageIpfsHash}.png` // TODO: change extension
-  );
-
-  fs.copyFile(image, metadataImagePath, (err) => {
-    if (err) throw err;
-  });
-
-  const attributes = Object.entries(cosmeticTraits).map((item) => ({
-    trait_type: cosmeticTraitsMap[item[0]],
-    value: item[1],
-  }));
-
-  const metadata = {
-    ...oldMetadata,
-    image: imageIpfsUrl,
-    external_url: `${process.env.WEBSITE_URL}`,
-    token_name: tokenName,
-    constitution: skills?.constitution,
-    strength: skills?.strength,
-    dexterity: skills?.dexterity,
-    wisdom: skills?.wisdom,
-    intelligence: skills?.intelligence,
-    charisma: skills?.charisma,
-    attributes,
-    properties: {
-      ...oldMetadata?.properties,
-      files: [
-        {
-          uri: imageIpfsUrl,
-          type: 'image/png', // TODO: change extension
-        },
-      ],
-    },
-  };
-
-  const uploadJsonIpfs = await addUploadIpfs({
-    type: uploadIpfsType.json,
-    pinataApiKey,
-    pinataSecretApiKey,
-    pinataGateway,
-    data: metadata,
-    tokenAddress,
-    stage: nftStages.customized,
-  });
-  const uploadJsonIpfsResult = await uploadJsonIpfs.finished();
-  console.log(uploadJsonIpfsResult);
-
-  const { metadataIpfsUrl, metadataIpfsHash } = uploadJsonIpfsResult;
-
-  const metadataJSON = JSON.stringify(metadata, null, 2);
-  fs.writeFileSync(
-    path.resolve(__dirname, `${metadataFolderPath}${metadataIpfsHash}.json`),
-    metadataJSON
-  );
-
-  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
-
-  await pool.query(
-    'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
-    [currentNft.id, nftStages.customized, metadataIpfsUrl, imageIpfsUrl]
-  );
-};
-
-exports.customizeNftFromAdminPanel = async (req, res) => {
-  try {
-    const { tokenAddress } = req.body;
-
-    const currentNft = await selectTokenByAddress(tokenAddress);
-    if (!currentNft) {
-      throw new Error(
-        `There is no token with address ${tokenAddress.slice(0, 8)}...`
-      );
-    }
-
-    const character = await selectCharacterByTokenId(currentNft.id);
-    if (!character) {
-      throw new Error(
-        `There is no character with address ${tokenAddress.slice(0, 8)}...`
-      );
-    }
-
-    const {
-      token_id,
-      constitution,
-      strength,
-      dexterity,
-      wisdom,
-      intelligence,
-      charisma,
-      race,
-      sex,
-      face_style,
-      skin_tone,
-      eye_detail,
-      eyes,
-      facial_hair,
-      glasses,
-      hair_style,
-      hair_color,
-      necklace,
-      earring,
-      nose_piercing,
-      scar,
-      tattoo,
-      background,
-    } = character;
-
-    const tokenNameData = await pool.query(
-      'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
-      [currentNft.id]
-    );
-    const tokenName = tokenNameData?.rows?.[0]?.token_name;
-    if (!tokenName) {
-      throw new Error(
-        `There is no token name for nft with address ${tokenAddress.slice(
-          0,
-          8
-        )}...`
-      );
-    }
-
-    const metadataQuery = await pool.query(
-      'SELECT * FROM metadata WHERE nft_id = $1 AND stage = $2 ORDER BY updated_at DESC LIMIT 1',
-      [currentNft.id, nftStages.revealed]
-    );
-    const metadataUrl = metadataQuery?.rows?.[0]?.metadata_url;
-    if (!metadataUrl) {
-      throw new Error(
-        `There is no metadata url for nft with address ${tokenAddress.slice(
-          0,
-          8
-        )}...`
-      );
-    }
-
-    const oldMetadata = await fetchOldMetadata(tokenAddress, metadataUrl);
-    !oldMetadata && throwErrorNoMetadata(tokenAddress);
-
-    const cosmeticTraits = {
-      race,
-      sex,
-      faceStyle: face_style,
-      skinTone: skin_tone,
-      eyeDetail: eye_detail,
-      eyes,
-      facialHair: facial_hair,
-      glasses,
-      hairStyle: hair_style,
-      hairColor: hair_color,
-      necklace,
-      earring,
-      nosePiercing: nose_piercing,
-      scar,
-      tattoo,
-      background,
-    };
-
-    const skills = {
-      constitution,
-      strength,
-      dexterity,
-      wisdom,
-      intelligence,
-      charisma,
-    };
-
-    res.status(200).send({
-      message: `Token "${tokenAddress.slice(
-        0,
-        8
-      )}..." successfully added into queue for rendering`,
-    });
-
-    await startCustomization(
-      token_id,
-      cosmeticTraits,
-      currentNft,
-      tokenAddress,
-      oldMetadata,
-      tokenName,
-      skills
-    );
-  } catch (error) {
-    await pool.query(
-      'INSERT INTO errors (token_address, function, message) VALUES($1, $2, $3)',
-      [
-        req.body.tokenAddress,
-        'customizeNftFromAdminPanel',
-        error.message.substr(0, 250),
-      ]
     );
     console.error(error.message);
     res.status(404).send({
@@ -677,76 +345,12 @@ exports.customizeNft = async (req, res) => {
       [req.body.tokenAddress, 'customizeNft', error.message.substr(0, 250)]
     );
     console.error(error.message);
-    res.status(404).send({
-      message: error.message,
-    });
-  }
-};
-
-exports.fetchTokenData = async (tokenAddress) => {
-  const currentNft = await selectTokenByAddress(tokenAddress);
-
-  if (!currentNft) {
-    return { token_name_status: null, isCustomized: false };
-  }
-
-  const isTokenAlreadyCustomized = await checkIsTokenAlreadyCustomized(
-    currentNft.id
-  );
-
-  if (!isTokenAlreadyCustomized) {
-    return {
-      token_name_status: null,
-      isCustomized: isTokenAlreadyCustomized,
-    };
-  }
-
-  const tokenNameData = await pool.query(
-    'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
-    [currentNft.id]
-  );
-
-  if (!tokenNameData || tokenNameData.rows.length === 0) {
-    return {
-      token_name_status: null,
-      isCustomized: isTokenAlreadyCustomized,
-    };
-  }
-
-  const tokenNameStatus = tokenNameData.rows[0]?.token_name_status;
-
-  if (!tokenNameStatus) {
-    return {
-      token_name_status: null,
-      isCustomized: isTokenAlreadyCustomized,
-    };
-  }
-
-  return {
-    token_name_status: tokenNameStatus,
-    isCustomized: isTokenAlreadyCustomized,
-  };
-};
-
-const getMetaData = async (tokenData) => {
-  return await retry(
-    async () => {
-      let metaData = {};
-      if (tokenData) {
-        const metaDataUri = tokenData.data?.uri;
-
-        const response = await axios.get(metaDataUri);
-
-        if (response && response.data.image) {
-          metaData = response.data;
-        }
-      }
-      return metaData;
-    },
-    {
-      retries: 5,
+    if (!res.headersSent) {
+      res.status(404).send({
+        message: error.message,
+      });
     }
-  );
+  }
 };
 
 exports.fetchNfts = async (req, res) => {
@@ -790,11 +394,10 @@ exports.fetchNfts = async (req, res) => {
     const cryptoquestNfts = nftArray.filter((nft) => {
       if (tokenAddress) {
         return (
-          nft.updateAuthority === process.env.UPDATE_AUTHORITY &&
-          nft.mint === tokenAddress
+          nft.updateAuthority === updateAuthority && nft.mint === tokenAddress
         );
       } else {
-        return nft.updateAuthority === process.env.UPDATE_AUTHORITY;
+        return nft.updateAuthority === updateAuthority;
       }
     });
 
@@ -819,7 +422,7 @@ exports.fetchNfts = async (req, res) => {
     // eslint-disable-next-line no-undef
     const nftsDataDB = await Promise.all(
       cryptoquestNftsWithMetadata.map(async (tokenData) => {
-        const tokenDataDB = await this.fetchTokenData(tokenData.mint);
+        const tokenDataDB = await fetchTokenData(tokenData.mint);
         return tokenDataDB;
       })
     );

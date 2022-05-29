@@ -11,7 +11,7 @@ exports.generateNonce = async (req, res) => {
 
     res.status(200).send({ nonce });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.status(405).send(error.message);
   }
 };
@@ -79,7 +79,6 @@ exports.login = async (req, res) => {
 // Sign up to Admin UI (route commented out)
 exports.signUp = async (req, res) => {
   try {
-    console.log(req.body);
     const { username, password } = req.body;
     const hashedPassword = bcrypt.hashSync(password, 8);
 

@@ -3,7 +3,6 @@ const {
   verifySignature,
   verifyIsWalletOwnsNft,
   verifyRedisRunning,
-  verifyJWTToken,
 } = require('../middleware');
 
 module.exports = function (app) {
@@ -15,36 +14,29 @@ module.exports = function (app) {
     next();
   });
 
+  // Fetch nfts
+  app.post('/api/nfts', controller.fetchNfts);
+
   // Check is nft unique
   app.post(
-    '/api/checkIsTokenIdUnique',
+    '/api/nfts/checkIsTokenIdUnique',
     controller.checkIsTokenIdUniqueController
   );
 
   // Load available tomes
-  app.get('/api/availableTomes', controller.availableTomes);
+  app.get('/api/nfts/availableTomes', controller.availableTomes);
 
   // Reveal nft
   app.post(
-    '/api/reveal',
+    '/api/nfts/reveal',
     [verifyRedisRunning, verifySignature, verifyIsWalletOwnsNft],
     controller.revealNft
   );
 
   // Customize nft
   app.post(
-    '/api/customize',
+    '/api/nfts/customize',
     [verifyRedisRunning, verifySignature, verifyIsWalletOwnsNft],
     controller.customizeNft
-  );
-
-  // Fetch nfts
-  app.post('/api/nfts', controller.fetchNfts);
-
-  // Customize nft from Admin panel
-  app.post(
-    '/api/nfts/customizeFromAdminPanel',
-    [verifyRedisRunning, verifyJWTToken],
-    controller.customizeNftFromAdminPanel
   );
 };

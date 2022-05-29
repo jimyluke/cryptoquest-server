@@ -29,6 +29,20 @@ exports.getSolanaConnection = async () => {
   return connection;
 };
 
+exports.getSolanaRpcEndpoint = () => {
+  return process.env.NODE_ENV === environmentEnum.development // TODO: FIX FOR PRODUCTION
+    ? process.env.DEVNET_CLUSTER_URL
+    : process.env.DEVNET_CLUSTER_URL;
+  // : process.env.MAINNET_CLUSTER_URL;
+};
+
+exports.getUpdateAuthtority = () => {
+  return process.env.NODE_ENV === environmentEnum.development // TODO: FIX FOR PRODUCTION
+    ? process.env.UPDATE_AUTHORITY_DEVELOPMENT
+    : process.env.UPDATE_AUTHORITY_DEVELOPMENT;
+  // : process.env.UPDATE_AUTHORITY_PRODUCTION;
+};
+
 exports.fetchTokenMetadataByTokenAddress = async (tokenAddress) => {
   const connection = await this.getSolanaConnection();
 
@@ -66,10 +80,10 @@ exports.updateMetadataUrlSolana = async (
   metadataUrlIpfs
 ) => {
   try {
-    const { stdout, stderr } = await retry(
+    const { stderr } = await retry(
       async () => {
         return await exec(
-          `metaboss update uri -a ${tokenAddress} -k ${keypair} -u ${metadataUrlIpfs}`
+          `metaboss -r ${this.getSolanaRpcEndpoint()} update uri -a ${tokenAddress} -k ${keypair} -u ${metadataUrlIpfs}`
         );
       },
       {
@@ -77,8 +91,7 @@ exports.updateMetadataUrlSolana = async (
       }
     );
 
-    console.log('METABOSS STDOUT:', stdout);
-    if (stderr) console.log('METABOSS STDERR:', stderr);
+    if (stderr) console.error('METABOSS STDERR:', stderr);
   } catch (error) {
     this.throwErrorSolanaUnavailable();
   }

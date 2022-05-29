@@ -1,22 +1,33 @@
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
 const fs = require('fs');
 const path = require('path');
+const retry = require('async-retry');
+const axios = require('axios');
 
+const { randomInteger } = require('./randomInteger');
+const {
+  calculateCosmeticTier,
+  calculateStatTier,
+} = require('./calculateTiers');
 const {
   heroTierImagesIpfsUrls,
   heroTierEnum,
   cosmeticPointsForTraits,
+  nftStages,
+  uploadIpfsType,
+  cosmeticTraitsMap,
 } = require('../variables/nft.variables');
 const pool = require('../config/db.config');
-const { environmentEnum } = require('../variables/global.variables');
 
-const addonName = 'CryptoQuest_Test'; // TODO: fix it for real addon name
-const blenderOutputFolderPathAbsolute =
-  process.env.NODE_ENV === environmentEnum.development
-    ? process.env.BLENDER_OUTPUT_LOCAL_ADDRESS
-    : process.env.BLENDER_OUTPUT_SERVER_ADDRESS;
+const { getPinataCredentials } = require('./pinata');
+const { updateMetadataUrlSolana } = require('./solana');
+const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
+const { addBlenderRender } = require('../queues/blenderRender.queue');
+
 const blenderOutputFolderPathRelative = '../../../blender_output/';
+const metadataFolderPath = '../../../metadata/';
+const { pinataApiKey, pinataSecretApiKey, pinataGateway } =
+  getPinataCredentials();
+const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 exports.throwErrorTokenAlreadyRevealed = (tokenAddress) => {
   throw new Error(
@@ -92,91 +103,8 @@ exports.selectCharacterByTokenId = async (tokenId) => {
   return character;
 };
 
-// TODO: update new config with skin tones
-exports.renderTokenFromBlender = async (
-  tokenId,
-  cosmeticTraits,
-  heroTier,
-  tokenAddress
-) => {
-  console.log(tokenId);
-
-  const {
-    race,
-    sex,
-    faceStyle,
-    eyeDetail,
-    eyes,
-    facialHair,
-    glasses,
-    hairStyle,
-    hairColor,
-    necklace,
-    earring,
-    nosePiercing,
-    scar,
-    tattoo,
-    background,
-  } = cosmeticTraits;
-
-  const config = {
-    engine: 'CYCLES',
-    width: 2000,
-    height: 2000,
-    'NFT name': `${race}_${sex}_${faceStyle.split(' ').join('_')}`,
-    'Token Id': tokenId,
-    race,
-    sex,
-    face_style: faceStyle,
-    hero_tier: heroTier,
-    eye_detail: eyeDetail,
-    eye_colors: eyes.split(' ').pop(),
-    facial_hair: facialHair,
-    glasses,
-    hair_style: hairStyle,
-    hair_color: hairColor,
-    necklace,
-    earring,
-    nose_piercing: nosePiercing,
-    scar,
-    face_tattoo: tattoo,
-    background,
-  };
-
-  console.log(config);
-
-  const configJSON = JSON.stringify(config, null, 2);
-  fs.writeFileSync(
-    path.resolve(
-      __dirname,
-      `${blenderOutputFolderPathRelative}${tokenId}.json`
-    ),
-    configJSON
-  );
-
-  const { stdout, stderr } = await exec(
-    `blender 1> nul -b -noaudio --addons ${addonName} --python-expr "import bpy;bpy.ops.crypto_quest_test.render_from_json(jsonPath= '${blenderOutputFolderPathAbsolute}${tokenId}.json', outDir = '${blenderOutputFolderPathAbsolute}')"`
-  );
-
-  console.log('BLENDER STDOUT:', stdout);
-  if (stderr) {
-    console.log('BLENDER STDERR:', stderr);
-    const renderedImageExist = stderr.includes('exists in Tokens Directory');
-    if (!renderedImageExist) {
-      throw new Error(stderr);
-    }
-  }
-
-  return {
-    tokenAddress,
-  };
-};
-
 exports.checkIsSkillsValid = (statPoints, skills) => {
   const totalSkills = Object.values(skills).reduce((a, b) => a + b, 0);
-
-  console.log('totalSkills', totalSkills);
-  console.log('statPoints', statPoints);
 
   return totalSkills === statPoints ? true : false;
 };
@@ -233,8 +161,251 @@ exports.checkIsTraitsValid = (cosmeticPoints, cosmeticTraits) => {
     tattooCP +
     backgroundCP;
 
-  console.log('cosmeticPointsSpent', cosmeticPointsSpent);
-  console.log('cosmeticPoints', cosmeticPoints);
-
   return cosmeticPointsSpent <= cosmeticPoints ? true : false;
+};
+
+exports.getRandomTokenFromTome = async (tome) => {
+  return await retry(
+    async () => {
+      // Select all possible tokens from tome
+      let allTokensFromTome;
+      if (tome === 'Woodland Respite') {
+        allTokensFromTome = await pool.query('SELECT * FROM woodland_respite');
+      } else if (tome === 'Dawn of Man') {
+        allTokensFromTome = await pool.query('SELECT * FROM dawn_of_man');
+      }
+
+      // Select all already revealed tokens from tome
+      const revealedTokensFromTome = await pool.query(
+        'SELECT * FROM tokens WHERE tome = $1',
+        [tome]
+      );
+
+      const allTokenNumbers = Array.from(
+        { length: allTokensFromTome?.rows.length },
+        (_, i) => i + 1
+      );
+
+      const revealedTokenNumbers = revealedTokensFromTome?.rows.map(
+        (item) => item?.token_number
+      );
+      // eslint-disable-next-line no-undef
+      const revealedTokenNumbersSet = new Set(revealedTokenNumbers);
+
+      const remainingTokenNumbers = allTokenNumbers.filter(
+        (item) => !revealedTokenNumbersSet.has(item)
+      );
+
+      if (remainingTokenNumbers.length <= 0) {
+        throw new Error(`All tokens already revealed`);
+      }
+
+      const randomTokenNumberIndex = randomInteger(
+        0,
+        remainingTokenNumbers.length - 1
+      );
+
+      const selectedTokenNumber = remainingTokenNumbers[randomTokenNumberIndex];
+
+      const {
+        token_number: tokenNumber,
+        stat_points: statPoints,
+        cosmetic_points: cosmeticPoints,
+        hero_tier: heroTier,
+      } = allTokensFromTome.rows.find(
+        (item) => item?.token_number === selectedTokenNumber
+      );
+
+      const statTier = calculateStatTier(statPoints, tome);
+      const cosmeticTier = calculateCosmeticTier(cosmeticPoints);
+
+      return {
+        tokenNumber,
+        statPoints,
+        cosmeticPoints,
+        statTier,
+        cosmeticTier,
+        heroTier,
+      };
+    },
+    {
+      retries: 5,
+    }
+  );
+};
+
+exports.checkIsTokenIdUnique = async (tokenId) => {
+  const isTokenIdExistQuery = await pool.query(
+    'SELECT EXISTS(SELECT 1 FROM characters WHERE token_id = $1)',
+    [tokenId]
+  );
+
+  const isTokenIdExist = isTokenIdExistQuery?.rows?.[0]?.exists;
+
+  return isTokenIdExist;
+};
+
+exports.startCustomization = async (
+  tokenId,
+  cosmeticTraits,
+  currentNft,
+  tokenAddress,
+  oldMetadata,
+  tokenName,
+  skills
+) => {
+  const blenderRender = await addBlenderRender({
+    tokenId,
+    cosmeticTraits,
+    heroTier: currentNft?.hero_tier,
+    tokenAddress,
+  });
+  await blenderRender.finished();
+
+  const image = path.resolve(
+    __dirname,
+    `${blenderOutputFolderPathRelative}${tokenId}.png` // TODO: change extension
+  );
+
+  const uploadImageIpfs = await addUploadIpfs({
+    type: uploadIpfsType.image,
+    pinataApiKey,
+    pinataSecretApiKey,
+    pinataGateway,
+    data: image,
+    tokenAddress,
+    stage: nftStages.customized,
+  });
+  const uploadImageIpfsResult = await uploadImageIpfs.finished();
+
+  const { imageIpfsHash, imageIpfsUrl } = uploadImageIpfsResult;
+
+  const metadataImagePath = path.resolve(
+    __dirname,
+    `${metadataFolderPath}${imageIpfsHash}.png` // TODO: change extension
+  );
+
+  fs.copyFile(image, metadataImagePath, (err) => {
+    if (err) throw err;
+  });
+
+  const attributes = Object.entries(cosmeticTraits).map((item) => ({
+    trait_type: cosmeticTraitsMap[item[0]],
+    value: item[1],
+  }));
+
+  const metadata = {
+    ...oldMetadata,
+    image: imageIpfsUrl,
+    external_url: `${process.env.WEBSITE_URL}`,
+    token_name: tokenName,
+    constitution: skills?.constitution,
+    strength: skills?.strength,
+    dexterity: skills?.dexterity,
+    wisdom: skills?.wisdom,
+    intelligence: skills?.intelligence,
+    charisma: skills?.charisma,
+    attributes,
+    properties: {
+      ...oldMetadata?.properties,
+      files: [
+        {
+          uri: imageIpfsUrl,
+          type: 'image/png', // TODO: change extension
+        },
+      ],
+    },
+  };
+
+  const uploadJsonIpfs = await addUploadIpfs({
+    type: uploadIpfsType.json,
+    pinataApiKey,
+    pinataSecretApiKey,
+    pinataGateway,
+    data: metadata,
+    tokenAddress,
+    stage: nftStages.customized,
+  });
+  const uploadJsonIpfsResult = await uploadJsonIpfs.finished();
+
+  const { metadataIpfsUrl, metadataIpfsHash } = uploadJsonIpfsResult;
+
+  const metadataJSON = JSON.stringify(metadata, null, 2);
+  fs.writeFileSync(
+    path.resolve(__dirname, `${metadataFolderPath}${metadataIpfsHash}.json`),
+    metadataJSON
+  );
+
+  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+
+  await pool.query(
+    'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
+    [currentNft.id, nftStages.customized, metadataIpfsUrl, imageIpfsUrl]
+  );
+};
+
+exports.fetchTokenData = async (tokenAddress) => {
+  const currentNft = await this.selectTokenByAddress(tokenAddress);
+
+  if (!currentNft) {
+    return { token_name_status: null, isCustomized: false };
+  }
+
+  const isTokenAlreadyCustomized = await this.checkIsTokenAlreadyCustomized(
+    currentNft.id
+  );
+
+  if (!isTokenAlreadyCustomized) {
+    return {
+      token_name_status: null,
+      isCustomized: isTokenAlreadyCustomized,
+    };
+  }
+
+  const tokenNameData = await pool.query(
+    'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
+    [currentNft.id]
+  );
+
+  if (!tokenNameData || tokenNameData.rows.length === 0) {
+    return {
+      token_name_status: null,
+      isCustomized: isTokenAlreadyCustomized,
+    };
+  }
+
+  const tokenNameStatus = tokenNameData.rows[0]?.token_name_status;
+
+  if (!tokenNameStatus) {
+    return {
+      token_name_status: null,
+      isCustomized: isTokenAlreadyCustomized,
+    };
+  }
+
+  return {
+    token_name_status: tokenNameStatus,
+    isCustomized: isTokenAlreadyCustomized,
+  };
+};
+
+exports.getMetaData = async (tokenData) => {
+  return await retry(
+    async () => {
+      let metaData = {};
+      if (tokenData) {
+        const metaDataUri = tokenData.data?.uri;
+
+        const response = await axios.get(metaDataUri);
+
+        if (response && response.data.image) {
+          metaData = response.data;
+        }
+      }
+      return metaData;
+    },
+    {
+      retries: 5,
+    }
+  );
 };
