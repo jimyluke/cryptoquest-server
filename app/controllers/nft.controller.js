@@ -353,11 +353,17 @@ exports.customizeNft = async (req, res) => {
       tokenAddress
     );
 
+    const metadataAfterInitialUpload = await fetchOldMetadata(
+      tokenAddress,
+      metadataIpfsUrl
+    );
+    !metadataAfterInitialUpload && throwErrorNoMetadata(tokenAddress);
+
     await updateSolanaMetadataAfterCustomization(
       cosmeticTraits,
       currentNft,
       tokenAddress,
-      metadataIpfsUrl,
+      metadataAfterInitialUpload,
       tokenName,
       skills,
       imageIpfsUrl
