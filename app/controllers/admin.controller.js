@@ -5,7 +5,8 @@ const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const {
   selectTokenByAddress,
   selectCharacterByTokenId,
-  startCustomization,
+  rerenderImageAndUpdateMetadata,
+  updateSolanaMetadataAfterCustomization,
 } = require('../utils/nft.utils');
 const { getPinataCredentials } = require('../utils/pinata');
 const {
@@ -129,14 +130,21 @@ exports.rerenderToken = async (req, res) => {
       )}..." successfully added into queue for rendering`,
     });
 
-    await startCustomization(
+    const { imageIpfsUrl } = await rerenderImageAndUpdateMetadata(
       token_id,
+      cosmeticTraits,
+      currentNft,
+      tokenAddress
+    );
+
+    await updateSolanaMetadataAfterCustomization(
       cosmeticTraits,
       currentNft,
       tokenAddress,
       oldMetadata,
       tokenName,
-      skills
+      skills,
+      imageIpfsUrl
     );
   } catch (error) {
     await pool.query(

@@ -245,14 +245,103 @@ exports.checkIsTokenIdUnique = async (tokenId) => {
   return isTokenIdExist;
 };
 
-exports.startCustomization = async (
-  tokenId,
+exports.updateSolanaMetadataAfterCustomization = async (
   cosmeticTraits,
   currentNft,
   tokenAddress,
   oldMetadata,
   tokenName,
-  skills
+  skills,
+  rerenderedImageUrl
+) => {
+  const attributes = Object.entries(cosmeticTraits).map((item) => ({
+    trait_type: cosmeticTraitsMap[item[0]],
+    value: item[1],
+  }));
+
+  const {
+    tome,
+    stat_points,
+    cosmetic_points,
+    stat_tier,
+    cosmetic_tier,
+    hero_tier,
+  } = currentNft;
+
+  const { constitution, strength, dexterity, wisdom, intelligence, charisma } =
+    skills;
+
+  const imageUrl = rerenderedImageUrl ? rerenderedImageUrl : oldMetadata?.image;
+
+  const metadata = {
+    ...oldMetadata,
+    image: imageUrl,
+    external_url: `${process.env.WEBSITE_URL}`,
+    properties: {
+      ...oldMetadata?.properties,
+      files: [
+        {
+          uri: imageUrl,
+          type: rerenderedImageUrl ? 'image/png' : 'image/png', // TODO: change extension
+        },
+      ],
+    },
+    tome,
+    stat_points,
+    cosmetic_points,
+    stat_tier,
+    cosmetic_tier,
+    hero_tier,
+    token_name: tokenName,
+    constitution,
+    strength,
+    dexterity,
+    wisdom,
+    intelligence,
+    charisma,
+    attributes: [
+      {
+        trait_type: 'Stage',
+        value: 'Hero',
+      },
+      ...attributes,
+    ],
+  };
+
+  const uploadJsonIpfs = await addUploadIpfs({
+    type: uploadIpfsType.json,
+    pinataApiKey,
+    pinataSecretApiKey,
+    pinataGateway,
+    data: metadata,
+    tokenAddress,
+    stage: nftStages.customized,
+  });
+  const uploadJsonIpfsResult = await uploadJsonIpfs.finished();
+
+  const { metadataIpfsUrl, metadataIpfsHash } = uploadJsonIpfsResult;
+
+  const metadataJSON = JSON.stringify(metadata, null, 2);
+  fs.writeFileSync(
+    path.resolve(__dirname, `${metadataFolderPath}${metadataIpfsHash}.json`),
+    metadataJSON
+  );
+
+  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+
+  await pool.query(
+    'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
+    [currentNft.id, nftStages.customized, metadataIpfsUrl, imageUrl]
+  );
+
+  return { metadataIpfsUrl };
+};
+
+exports.rerenderImageAndUpdateMetadata = async (
+  tokenId,
+  cosmeticTraits,
+  currentNft,
+  tokenAddress
 ) => {
   const blenderRender = await addBlenderRender({
     tokenId,
@@ -289,59 +378,7 @@ exports.startCustomization = async (
     if (err) throw err;
   });
 
-  const attributes = Object.entries(cosmeticTraits).map((item) => ({
-    trait_type: cosmeticTraitsMap[item[0]],
-    value: item[1],
-  }));
-
-  const metadata = {
-    ...oldMetadata,
-    image: imageIpfsUrl,
-    external_url: `${process.env.WEBSITE_URL}`,
-    token_name: tokenName,
-    constitution: skills?.constitution,
-    strength: skills?.strength,
-    dexterity: skills?.dexterity,
-    wisdom: skills?.wisdom,
-    intelligence: skills?.intelligence,
-    charisma: skills?.charisma,
-    attributes,
-    properties: {
-      ...oldMetadata?.properties,
-      files: [
-        {
-          uri: imageIpfsUrl,
-          type: 'image/png', // TODO: change extension
-        },
-      ],
-    },
-  };
-
-  const uploadJsonIpfs = await addUploadIpfs({
-    type: uploadIpfsType.json,
-    pinataApiKey,
-    pinataSecretApiKey,
-    pinataGateway,
-    data: metadata,
-    tokenAddress,
-    stage: nftStages.customized,
-  });
-  const uploadJsonIpfsResult = await uploadJsonIpfs.finished();
-
-  const { metadataIpfsUrl, metadataIpfsHash } = uploadJsonIpfsResult;
-
-  const metadataJSON = JSON.stringify(metadata, null, 2);
-  fs.writeFileSync(
-    path.resolve(__dirname, `${metadataFolderPath}${metadataIpfsHash}.json`),
-    metadataJSON
-  );
-
-  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
-
-  await pool.query(
-    'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
-    [currentNft.id, nftStages.customized, metadataIpfsUrl, imageIpfsUrl]
-  );
+  return { imageIpfsUrl };
 };
 
 exports.fetchTokenData = async (tokenAddress) => {

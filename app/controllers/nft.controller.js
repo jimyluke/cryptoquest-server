@@ -31,9 +31,10 @@ const {
   checkIsTraitsValid,
   checkIsTokenIdUnique,
   getRandomTokenFromTome,
-  startCustomization,
   getMetaData,
   fetchTokenData,
+  updateSolanaMetadataAfterCustomization,
+  rerenderImageAndUpdateMetadata,
 } = require('../utils/nft.utils');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { checkIsTokenNameUnique } = require('./tokenName.controller');
@@ -157,6 +158,12 @@ exports.revealNft = async (req, res) => {
           },
         ],
       },
+      attributes: [
+        {
+          trait_type: 'Stage',
+          value: 'Tome',
+        },
+      ],
     };
 
     const uploadIpfs = await addUploadIpfs({
@@ -330,14 +337,30 @@ exports.customizeNft = async (req, res) => {
 
     res.status(200).send({ success: 'Success' });
 
-    await startCustomization(
-      tokenId,
+    const { metadataIpfsUrl } = await updateSolanaMetadataAfterCustomization(
       cosmeticTraits,
       currentNft,
       tokenAddress,
       oldMetadata,
       tokenName,
       skills
+    );
+
+    const { imageIpfsUrl } = await rerenderImageAndUpdateMetadata(
+      tokenId,
+      cosmeticTraits,
+      currentNft,
+      tokenAddress
+    );
+
+    await updateSolanaMetadataAfterCustomization(
+      cosmeticTraits,
+      currentNft,
+      tokenAddress,
+      metadataIpfsUrl,
+      tokenName,
+      skills,
+      imageIpfsUrl
     );
   } catch (error) {
     await pool.query(
