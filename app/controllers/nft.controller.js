@@ -441,7 +441,7 @@ exports.fetchNfts = async (req, res) => {
     }));
 
     // eslint-disable-next-line no-undef
-    const nftsMetaData = await Promise.all(
+    const nftsMetaData = await Promise.allSettled(
       cryptoquestNftsWithMetadata.map(async (tokenData) => {
         const metaData = await getMetaData(tokenData);
         return metaData;
@@ -449,7 +449,7 @@ exports.fetchNfts = async (req, res) => {
     );
 
     // eslint-disable-next-line no-undef
-    const nftsDataDB = await Promise.all(
+    const nftsDataDB = await Promise.allSettled(
       cryptoquestNftsWithMetadata.map(async (tokenData) => {
         const tokenDataDB = await fetchTokenData(tokenData.mint);
         return tokenDataDB;
@@ -457,11 +457,11 @@ exports.fetchNfts = async (req, res) => {
     );
 
     cryptoquestNftsWithMetadata.forEach(async (tokenData, index) => {
-      const metaData = nftsMetaData[index];
+      const metaData = nftsMetaData[index]?.value;
       if (metaData) {
         tokenData.data.customMetaData = metaData;
       }
-      const tokenDataDB = nftsDataDB[index];
+      const tokenDataDB = nftsDataDB[index]?.value;
 
       tokenData.data.token_name_status = tokenDataDB.token_name_status;
       tokenData.data.isCustomized = tokenDataDB.isCustomized;

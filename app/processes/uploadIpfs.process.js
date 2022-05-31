@@ -28,7 +28,7 @@ exports.uploadIpfsProcess = async (job, done) => {
         pinataSecretApiKey,
         pinataGateway,
         data,
-        tokenAddress,
+        `${tokenAddress}-image`,
         tokenAddress
       );
       done(null, result);

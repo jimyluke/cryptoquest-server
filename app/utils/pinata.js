@@ -198,6 +198,16 @@ exports.uploadImage = async (
 //   }
 // };
 
+// const exceptionsForUnpinning = [
+//   'QmNZV2SLmpdFC9VLTbJZbYEg3GdvJYjRUQ6Pp1yy38JajW',
+//   'QmSKNjgqQPXhTtMhoMwYCr66gcxMvZrYqtjkN52kjEseni',
+//   'QmYmwLxQ14FNMNk8kdHQjpgtjXhp36wyS8kNuntTYAsLRZ',
+//   'QmNjra7UGCnrcjwRwthaznN5oug7zSEZiABd5mgW4znSxp',
+//   'QmYcKiTrsbSz8bhg186F6NmhyEtV1DfHuqAqWV8cezhQj7',
+//   'QmRw82c9RsDcECqR4iVzqek9x2ZpMLjVnsuEYD1Ey3LwiA',
+//   'QmSWWMAv4bmUdMzz1X8uGbJbLyAGQk5tdUBw4UmiXEfotu',
+// ];
+
 // Unpin all pinned files from Pinata
 // exports.unpinAllFromPinata = async (pinataApiKey, pinataSecretApiKey) => {
 //   try {
@@ -212,12 +222,16 @@ exports.uploadImage = async (
 //     await sleep(1000);
 
 //     for (var i = 0; i < pinList.rows.length; i++) {
+//       console.log(pinList.rows[i]?.ipfs_pin_hash);
+//       if (exceptionsForUnpinning.includes(pinList.rows[i]?.ipfs_pin_hash)) {
+//         continue;
+//       }
+//       console.log(i);
 //       await this.removePinFromPinata(
 //         pinataApiKey,
 //         pinataSecretApiKey,
 //         pinList.rows[i]?.ipfs_pin_hash
 //       );
-//       console.log(i);
 //       await sleep(1000);
 //     }
 //   } catch (error) {
