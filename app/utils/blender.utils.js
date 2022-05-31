@@ -4,14 +4,13 @@ const fs = require('fs');
 const path = require('path');
 const { environmentEnum } = require('../variables/global.variables');
 
-const addonName = 'CryptoQuest_Test'; // TODO: fix it for real addon name
+const addonName = 'CryptoQuest';
 const blenderOutputFolderPathAbsolute =
   process.env.NODE_ENV === environmentEnum.development
     ? process.env.BLENDER_OUTPUT_LOCAL_ADDRESS
     : process.env.BLENDER_OUTPUT_SERVER_ADDRESS;
 const blenderOutputFolderPathRelative = '../../../blender_output/';
 
-// TODO: update new config with skin tones
 exports.renderTokenFromBlender = async (
   tokenId,
   cosmeticTraits,
@@ -22,6 +21,7 @@ exports.renderTokenFromBlender = async (
     race,
     sex,
     faceStyle,
+    skinTone,
     eyeDetail,
     eyes,
     facialHair,
@@ -37,25 +37,24 @@ exports.renderTokenFromBlender = async (
   } = cosmeticTraits;
 
   const config = {
-    engine: 'CYCLES',
     width: 2000,
     height: 2000,
-    'NFT name': `${race}_${sex}_${faceStyle.split(' ').join('_')}`,
     'Token Id': tokenId,
     race,
     sex,
     face_style: faceStyle,
+    skin_tone: skinTone,
     hero_tier: heroTier,
-    eye_detail: eyeDetail,
-    eye_colors: eyes.split(' ').pop(),
-    facial_hair: facialHair,
-    glasses,
+    scar,
     hair_style: hairStyle,
     hair_color: hairColor,
+    facial_hair: facialHair,
+    eye_colors: eyes.split(' ').pop(),
+    eye_detail: eyeDetail,
+    glasses,
     necklace,
     earring,
     nose_piercing: nosePiercing,
-    scar,
     face_tattoo: tattoo,
     background,
   };

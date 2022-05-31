@@ -34,7 +34,7 @@ const {
   getMetaData,
   fetchTokenData,
   updateSolanaMetadataAfterCustomization,
-  rerenderImageAndUpdateMetadata,
+  renderImageAndUpdateMetadata,
 } = require('../utils/nft.utils');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { checkIsTokenNameUnique } = require('./tokenName.controller');
@@ -346,7 +346,7 @@ exports.customizeNft = async (req, res) => {
       skills
     );
 
-    const { imageIpfsUrl } = await rerenderImageAndUpdateMetadata(
+    const { imageIpfsUrl } = await renderImageAndUpdateMetadata(
       tokenId,
       cosmeticTraits,
       currentNft,

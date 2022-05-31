@@ -282,7 +282,7 @@ exports.updateSolanaMetadataAfterCustomization = async (
       files: [
         {
           uri: imageUrl,
-          type: rerenderedImageUrl ? 'image/png' : 'image/png', // TODO: change extension
+          type: rerenderedImageUrl ? 'image/jpeg' : 'image/png',
         },
       ],
     },
@@ -337,7 +337,7 @@ exports.updateSolanaMetadataAfterCustomization = async (
   return { metadataIpfsUrl };
 };
 
-exports.rerenderImageAndUpdateMetadata = async (
+exports.renderImageAndUpdateMetadata = async (
   tokenId,
   cosmeticTraits,
   currentNft,
@@ -353,7 +353,7 @@ exports.rerenderImageAndUpdateMetadata = async (
 
   const image = path.resolve(
     __dirname,
-    `${blenderOutputFolderPathRelative}${tokenId}.png` // TODO: change extension
+    `${blenderOutputFolderPathRelative}${tokenId}.jpg`
   );
 
   const uploadImageIpfs = await addUploadIpfs({
@@ -371,7 +371,7 @@ exports.rerenderImageAndUpdateMetadata = async (
 
   const metadataImagePath = path.resolve(
     __dirname,
-    `${metadataFolderPath}${imageIpfsHash}.png` // TODO: change extension
+    `${metadataFolderPath}${imageIpfsHash}.jpg`
   );
 
   fs.copyFile(image, metadataImagePath, (err) => {
