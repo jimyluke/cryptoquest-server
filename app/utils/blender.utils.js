@@ -69,7 +69,7 @@ exports.renderTokenFromBlender = async (
   );
 
   const { stderr } = await exec(
-    `blender 1> nul -b -noaudio --addons CryptoQuest --python-expr "import bpy;bpy.ops.crypto_quest.render_from_json(jsonPath= '${blenderOutputFolderPathAbsolute}${tokenId}.json', outDirPath = '${blenderOutputFolderPathAbsolute}')"`
+    `cd '/home/zhopkins/Blender/Blender3' && ./blender -b -noaudio --addons CryptoQuest --python-expr "import bpy;bpy.ops.crypto_quest.render_from_json(jsonPath= '${blenderOutputFolderPathAbsolute}${tokenId}.json', outDirPath = '${blenderOutputFolderPathAbsolute}')"`
   );
 
   if (stderr) {

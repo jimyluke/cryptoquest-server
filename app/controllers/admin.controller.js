@@ -193,6 +193,14 @@ exports.uploadIpfsController = async (req, res) => {
 
     res.status(200).send({ ipfsUrl });
   } catch (error) {
+    await pool.query(
+      'INSERT INTO errors (token_address, function, message) VALUES($1, $2, $3)',
+      [
+        req.body.tokenAddress,
+        'uploadIpfsController',
+        error.message.substr(0, 250),
+      ]
+    );
     console.error(error.message);
     res.status(404).send({
       message: error.message,
@@ -208,6 +216,14 @@ exports.updateMetadataUrlSolanaController = async (req, res) => {
 
     res.status(200).send({ success: 'Success' });
   } catch (error) {
+    await pool.query(
+      'INSERT INTO errors (token_address, function, message) VALUES($1, $2, $3)',
+      [
+        req.body.tokenAddress,
+        'updateMetadataUrlSolanaController',
+        error.message.substr(0, 250),
+      ]
+    );
     console.error(error.message);
     res.status(404).send({
       message: error.message,
