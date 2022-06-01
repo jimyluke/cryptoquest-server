@@ -20,27 +20,24 @@ exports.throwErrorSolanaUnavailable = () => {
 
 exports.getSolanaConnection = async () => {
   const clusterUrl =
-    process.env.NODE_ENV === environmentEnum.development // TODO: FIX FOR PRODUCTION
+    process.env.NODE_ENV === environmentEnum.development
       ? process.env.DEVNET_CLUSTER_URL
-      : process.env.DEVNET_CLUSTER_URL;
-  // : process.env.MAINNET_CLUSTER_URL;
+      : process.env.MAINNET_CLUSTER_URL;
 
   const connection = new Connection(clusterUrl);
   return connection;
 };
 
 exports.getSolanaRpcEndpoint = () => {
-  return process.env.NODE_ENV === environmentEnum.development // TODO: FIX FOR PRODUCTION
+  return process.env.NODE_ENV === environmentEnum.development
     ? process.env.DEVNET_CLUSTER_URL
-    : process.env.DEVNET_CLUSTER_URL;
-  // : process.env.MAINNET_CLUSTER_URL;
+    : process.env.MAINNET_CLUSTER_URL;
 };
 
 exports.getUpdateAuthtority = () => {
-  return process.env.NODE_ENV === environmentEnum.development // TODO: FIX FOR PRODUCTION
+  return process.env.NODE_ENV === environmentEnum.development
     ? process.env.UPDATE_AUTHORITY_DEVELOPMENT
-    : process.env.UPDATE_AUTHORITY_DEVELOPMENT;
-  // : process.env.UPDATE_AUTHORITY_PRODUCTION;
+    : process.env.UPDATE_AUTHORITY_PRODUCTION;
 };
 
 exports.fetchTokenMetadataByTokenAddress = async (tokenAddress) => {

@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const { environmentEnum } = require('../variables/global.variables');
 
-const addonName = 'CryptoQuest';
 const blenderOutputFolderPathAbsolute =
   process.env.NODE_ENV === environmentEnum.development
     ? process.env.BLENDER_OUTPUT_LOCAL_ADDRESS

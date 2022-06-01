@@ -8,15 +8,10 @@ exports.getPinataCredentials = () => {
   let pinataApiKey, pinataSecretApiKey, pinataJwt, pinataGateway;
 
   if (process.env.NODE_ENV === environmentEnum.development) {
-    // TODO: change for production
-    // pinataApiKey = process.env.PINATA_API_KEY_DEVELOPMENT;
-    // pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY_DEVELOPMENT;
-    // pinataJwt = process.env.PINATA_JWT_DEVELOPMENT;
-    // pinataGateway = process.env.PINATA_GATEWAY_DEVELOPMENT;
-    pinataApiKey = process.env.PINATA_API_KEY_PRODUCTION;
-    pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY_PRODUCTION;
-    pinataJwt = process.env.PINATA_JWT_PRODUCTION;
-    pinataGateway = process.env.PINATA_GATEWAY_PRODUCTION;
+    pinataApiKey = process.env.PINATA_API_KEY_DEVELOPMENT;
+    pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY_DEVELOPMENT;
+    pinataJwt = process.env.PINATA_JWT_DEVELOPMENT;
+    pinataGateway = process.env.PINATA_GATEWAY_DEVELOPMENT;
   } else {
     pinataApiKey = process.env.PINATA_API_KEY_PRODUCTION;
     pinataSecretApiKey = process.env.PINATA_API_SECRET_KEY_PRODUCTION;
