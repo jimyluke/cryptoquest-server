@@ -166,24 +166,6 @@ exports.revealNft = async (req, res) => {
       ],
     };
 
-    const revealedTokenData = await pool.query(
-      'INSERT INTO tokens (token_address, mint_name, tome, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-      [
-        tokenAddress,
-        mintName,
-        tome,
-        mintNumber,
-        tokenNumber,
-        statPoints,
-        cosmeticPoints,
-        statTier,
-        cosmeticTier,
-        heroTier,
-      ]
-    );
-
-    const revealedToken = revealedTokenData?.rows?.[0];
-
     const uploadIpfs = await addUploadIpfs({
       type: uploadIpfsType.json,
       pinataApiKey,
@@ -204,6 +186,24 @@ exports.revealNft = async (req, res) => {
     );
 
     await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+
+    const revealedTokenData = await pool.query(
+      'INSERT INTO tokens (token_address, mint_name, tome, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [
+        tokenAddress,
+        mintName,
+        tome,
+        mintNumber,
+        tokenNumber,
+        statPoints,
+        cosmeticPoints,
+        statTier,
+        cosmeticTier,
+        heroTier,
+      ]
+    );
+
+    const revealedToken = revealedTokenData?.rows?.[0];
 
     await pool.query(
       'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
