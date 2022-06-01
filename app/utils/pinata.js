@@ -26,6 +26,10 @@ exports.extractHashFromIpfsUrl = (ipfsUrl) => {
   return ipfsUrl.split('ipfs/').pop().split('?')[0];
 };
 
+exports.extractHashFromArweaveUrl = (arweaveUrl) => {
+  return arweaveUrl.split('arweave.net/').pop().split('?')[0];
+};
+
 exports.uploadJson = async (
   pinataApiKey,
   pinataSecretApiKey,

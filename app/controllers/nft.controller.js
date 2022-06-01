@@ -8,8 +8,8 @@ const {
 
 const pool = require('../config/db.config');
 const {
-  extractHashFromIpfsUrl,
   getPinataCredentials,
+  extractHashFromArweaveUrl,
 } = require('../utils/pinata');
 const { nftStages, uploadIpfsType } = require('../variables/nft.variables');
 const {
@@ -131,7 +131,7 @@ exports.revealNft = async (req, res) => {
     } = await getRandomTokenFromTome(tome);
 
     const oldMetadataJSON = JSON.stringify(oldMetadata, null, 2);
-    const metadataUrlHash = extractHashFromIpfsUrl(metadataUri);
+    const metadataUrlHash = extractHashFromArweaveUrl(metadataUri);
     fs.writeFileSync(
       path.resolve(__dirname, `${metadataFolderPath}${metadataUrlHash}.json`),
       oldMetadataJSON
