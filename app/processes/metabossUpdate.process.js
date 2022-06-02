@@ -6,11 +6,11 @@ const { getSolanaRpcEndpoint } = require('../utils/solana');
 
 exports.metabossUpdateProcess = async (job, done) => {
   try {
-    const { tokenAddress, keypair, metadataUrlIpfs } = job.data;
+    const { tokenAddress, keypair, metadataIpfsUrl } = job.data;
     const { stderr } = await retry(
       async () => {
         return await exec(
-          `metaboss -r ${getSolanaRpcEndpoint()} update uri -a ${tokenAddress} -k ${keypair} -u ${metadataUrlIpfs}`
+          `metaboss -r ${getSolanaRpcEndpoint()} update uri -a ${tokenAddress} -k ${keypair} -u ${metadataIpfsUrl}`
         );
       },
       {
