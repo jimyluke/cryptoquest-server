@@ -9,6 +9,7 @@ const LocalStrategy = require('passport-local').Strategy;
 
 const { blenderRenderQueue } = require('../queues/blenderRender.queue');
 const { uploadIpfsQueue } = require('../queues/uploadIpfs.queue');
+const { metabossUpdateQueue } = require('../queues/metabossUpdate.queue');
 
 module.exports = function (app) {
   passport.use(
@@ -38,6 +39,7 @@ module.exports = function (app) {
     queues: [
       new BullAdapter(blenderRenderQueue),
       new BullAdapter(uploadIpfsQueue),
+      new BullAdapter(metabossUpdateQueue),
     ],
     serverAdapter,
   });

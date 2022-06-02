@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db.config');
+const { addMetabossUpdate } = require('../queues/metabossUpdate.queue');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const {
   selectTokenByAddress,
@@ -212,7 +213,13 @@ exports.updateMetadataUrlSolanaController = async (req, res) => {
   try {
     const { metadataIpfsUrl, tokenAddress } = req.body;
 
-    await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+    // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+    const metabossUpdate = await addMetabossUpdate({
+      tokenAddress,
+      keypair,
+      metadataIpfsUrl,
+    });
+    await metabossUpdate.finished();
 
     res.status(200).send({ success: 'Success' });
   } catch (error) {
@@ -230,3 +237,71 @@ exports.updateMetadataUrlSolanaController = async (req, res) => {
     });
   }
 };
+
+// exports.addRevealedTokenToTheDatabase = async (req, res) => {
+//   try {
+//     const { metadataIpfsUrl, tokenAddress, tokenNumber } = req.body;
+
+//     const oldMetadata = await fetchOldMetadata(tokenAddress, metadataIpfsUrl);
+//     !oldMetadata && throwErrorNoMetadata(tokenAddress);
+
+//     const {
+//       name,
+//       tome,
+//       stat_points,
+//       cosmetic_points,
+//       stat_tier,
+//       cosmetic_tier,
+//       hero_tier,
+//       image,
+//     } = oldMetadata;
+
+//     const mintNumber = name.split('#')[1];
+
+//     const revealedTokenData = await pool.query(
+//       'INSERT INTO tokens (token_address, mint_name, tome, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+//       [
+//         tokenAddress,
+//         name,
+//         tome,
+//         mintNumber,
+//         tokenNumber,
+//         stat_points,
+//         cosmetic_points,
+//         stat_tier,
+//         cosmetic_tier,
+//         hero_tier,
+//       ]
+//     );
+
+//     const revealedToken = revealedTokenData?.rows?.[0];
+
+//     await pool.query(
+//       'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
+//       [revealedToken.id, nftStages.revealed, metadataIpfsUrl, image]
+//     );
+
+//     // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+//     const metabossUpdate = await addMetabossUpdate({
+//       tokenAddress,
+//       keypair,
+//       metadataIpfsUrl,
+//     });
+//     await metabossUpdate.finished();
+
+//     res.status(200).send({ success: 'Success' });
+//   } catch (error) {
+//     await pool.query(
+//       'INSERT INTO errors (token_address, function, message) VALUES($1, $2, $3)',
+//       [
+//         req.body.tokenAddress,
+//         'addRevealedTokenToTheDatabase',
+//         error.message.substr(0, 250),
+//       ]
+//     );
+//     console.error(error.message);
+//     res.status(404).send({
+//       message: error.message,
+//     });
+//   }
+// };

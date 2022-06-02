@@ -10,6 +10,7 @@ const pool = require('../config/db.config');
 const {
   getPinataCredentials,
   extractHashFromArweaveUrl,
+  extractHashFromIpfsUrl,
 } = require('../utils/pinata');
 const { nftStages, uploadIpfsType } = require('../variables/nft.variables');
 const {
@@ -38,6 +39,8 @@ const {
 } = require('../utils/nft.utils');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { checkIsTokenNameUnique } = require('./tokenName.controller');
+const { addMetabossUpdate } = require('../queues/metabossUpdate.queue');
+const { environmentEnum } = require('../variables/global.variables');
 const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
@@ -117,7 +120,7 @@ exports.revealNft = async (req, res) => {
     const isTokenAlreadyRevealed = await checkIsTokenAlreadyRevealed(
       tokenAddress
     );
-    if (isTokenAlreadyRevealed) {
+    if (isTokenAlreadyRevealed || oldMetadata?.tome) {
       throwErrorTokenAlreadyRevealed(tokenAddress);
     }
 
@@ -131,7 +134,10 @@ exports.revealNft = async (req, res) => {
     } = await getRandomTokenFromTome(tome);
 
     const oldMetadataJSON = JSON.stringify(oldMetadata, null, 2);
-    const metadataUrlHash = extractHashFromArweaveUrl(metadataUri);
+    const metadataUrlHash =
+      process.env.NODE_ENV === environmentEnum.development
+        ? extractHashFromIpfsUrl(metadataUri)
+        : extractHashFromArweaveUrl(metadataUri);
     fs.writeFileSync(
       path.resolve(__dirname, `${metadataFolderPath}${metadataUrlHash}.json`),
       oldMetadataJSON
@@ -185,7 +191,13 @@ exports.revealNft = async (req, res) => {
       metadataJSON
     );
 
-    await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+    // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+    const metabossUpdate = await addMetabossUpdate({
+      tokenAddress,
+      keypair,
+      metadataIpfsUrl,
+    });
+    await metabossUpdate.finished();
 
     const revealedTokenData = await pool.query(
       'INSERT INTO tokens (token_address, mint_name, tome, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',

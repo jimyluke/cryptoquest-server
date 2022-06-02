@@ -22,6 +22,7 @@ const { getPinataCredentials } = require('./pinata');
 const { updateMetadataUrlSolana } = require('./solana');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { addBlenderRender } = require('../queues/blenderRender.queue');
+const { addMetabossUpdate } = require('../queues/metabossUpdate.queue');
 
 const blenderOutputFolderPathRelative = '../../../blender_output/';
 const metadataFolderPath = '../../../metadata/';
@@ -327,7 +328,13 @@ exports.updateSolanaMetadataAfterCustomization = async (
     metadataJSON
   );
 
-  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+  // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+  const metabossUpdate = await addMetabossUpdate({
+    tokenAddress,
+    keypair,
+    metadataIpfsUrl,
+  });
+  await metabossUpdate.finished();
 
   await pool.query(
     'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
