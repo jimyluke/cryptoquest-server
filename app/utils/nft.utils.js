@@ -15,14 +15,14 @@ const {
   nftStages,
   uploadIpfsType,
   cosmeticTraitsMap,
+  skillsMap,
 } = require('../variables/nft.variables');
 const pool = require('../config/db.config');
 
 const { getPinataCredentials } = require('./pinata');
-const { updateMetadataUrlSolana } = require('./solana');
+const { updateMetadataUrlSolana, updateTokenNameSolana } = require('./solana');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { addBlenderRender } = require('../queues/blenderRender.queue');
-const { addMetabossUpdate } = require('../queues/metabossUpdate.queue');
 
 const blenderOutputFolderPathRelative = '../../../blender_output/';
 const metadataFolderPath = '../../../metadata/';
@@ -255,8 +255,12 @@ exports.updateSolanaMetadataAfterCustomization = async (
   skills,
   rerenderedImageUrl
 ) => {
-  const attributes = Object.entries(cosmeticTraits).map((item) => ({
+  const cosmeticAttributes = Object.entries(cosmeticTraits).map((item) => ({
     trait_type: cosmeticTraitsMap[item[0]],
+    value: item[1],
+  }));
+  const skillsAttributes = Object.entries(skills).map((item) => ({
+    trait_type: skillsMap[item[0]],
     value: item[1],
   }));
 
@@ -267,12 +271,20 @@ exports.updateSolanaMetadataAfterCustomization = async (
     stat_tier,
     cosmetic_tier,
     hero_tier,
+    mint_name,
   } = currentNft;
 
-  const { constitution, strength, dexterity, wisdom, intelligence, charisma } =
-    skills;
+  const attributes = [...cosmeticAttributes, ...skillsAttributes];
 
   const imageUrl = rerenderedImageUrl ? rerenderedImageUrl : oldMetadata?.image;
+
+  // eslint-disable-next-line no-undef
+  const attributesSet = new Set();
+  const uniqueAttributes = attributes.filter((item) =>
+    !attributesSet.has(JSON.stringify(item))
+      ? attributesSet.add(JSON.stringify(item))
+      : false
+  );
 
   const metadata = {
     ...oldMetadata,
@@ -287,25 +299,38 @@ exports.updateSolanaMetadataAfterCustomization = async (
         },
       ],
     },
-    tome,
-    stat_points,
-    cosmetic_points,
-    stat_tier,
-    cosmetic_tier,
-    hero_tier,
-    token_name: tokenName,
-    constitution,
-    strength,
-    dexterity,
-    wisdom,
-    intelligence,
-    charisma,
+    name: tokenName,
+    mint_name,
     attributes: [
       {
         trait_type: 'Stage',
         value: 'Hero',
       },
-      ...attributes,
+      {
+        trait_type: 'Tome',
+        value: tome,
+      },
+      {
+        trait_type: 'Hero Tier',
+        value: hero_tier,
+      },
+      {
+        trait_type: 'Stat Tier',
+        value: stat_tier,
+      },
+      {
+        trait_type: 'Cosmetic Tier',
+        value: cosmetic_tier,
+      },
+      {
+        trait_type: 'Stat Points',
+        value: stat_points,
+      },
+      {
+        trait_type: 'Cosmetic Points',
+        value: cosmetic_points,
+      },
+      ...uniqueAttributes,
     ],
   };
 
@@ -328,18 +353,15 @@ exports.updateSolanaMetadataAfterCustomization = async (
     metadataJSON
   );
 
-  // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
-  const metabossUpdate = await addMetabossUpdate({
-    tokenAddress,
-    keypair,
-    metadataIpfsUrl,
-  });
-  await metabossUpdate.finished();
-
   await pool.query(
     'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
     [currentNft.id, nftStages.customized, metadataIpfsUrl, imageUrl]
   );
+
+  if (!rerenderedImageUrl) {
+    await updateTokenNameSolana(tokenAddress, keypair, tokenName);
+  }
+  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
 
   return { metadataIpfsUrl };
 };
@@ -388,49 +410,23 @@ exports.renderImageAndUpdateMetadata = async (
   return { imageIpfsUrl };
 };
 
-exports.fetchTokenData = async (tokenAddress) => {
-  const currentNft = await this.selectTokenByAddress(tokenAddress);
-
-  if (!currentNft) {
-    return { token_name_status: null, isCustomized: false };
-  }
-
-  const isTokenAlreadyCustomized = await this.checkIsTokenAlreadyCustomized(
-    currentNft.id
-  );
-
-  if (!isTokenAlreadyCustomized) {
-    return {
-      token_name_status: null,
-      isCustomized: isTokenAlreadyCustomized,
-    };
-  }
-
+exports.fetchTokenNameStatus = async (tokenId) => {
   const tokenNameData = await pool.query(
     'SELECT * FROM token_names WHERE nft_id = $1 ORDER BY updated_at DESC LIMIT 1',
-    [currentNft.id]
+    [tokenId]
   );
 
   if (!tokenNameData || tokenNameData.rows.length === 0) {
-    return {
-      token_name_status: null,
-      isCustomized: isTokenAlreadyCustomized,
-    };
+    return null;
   }
 
   const tokenNameStatus = tokenNameData.rows[0]?.token_name_status;
 
   if (!tokenNameStatus) {
-    return {
-      token_name_status: null,
-      isCustomized: isTokenAlreadyCustomized,
-    };
+    return null;
   }
 
-  return {
-    token_name_status: tokenNameStatus,
-    isCustomized: isTokenAlreadyCustomized,
-  };
+  return tokenNameStatus;
 };
 
 exports.getMetaData = async (tokenData) => {

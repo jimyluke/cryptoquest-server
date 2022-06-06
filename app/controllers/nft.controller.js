@@ -10,7 +10,6 @@ const pool = require('../config/db.config');
 const {
   getPinataCredentials,
   extractHashFromArweaveUrl,
-  extractHashFromIpfsUrl,
 } = require('../utils/pinata');
 const { nftStages, uploadIpfsType } = require('../variables/nft.variables');
 const {
@@ -33,14 +32,13 @@ const {
   checkIsTokenIdUnique,
   getRandomTokenFromTome,
   getMetaData,
-  fetchTokenData,
   updateSolanaMetadataAfterCustomization,
   renderImageAndUpdateMetadata,
+  fetchTokenNameStatus,
 } = require('../utils/nft.utils');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { checkIsTokenNameUnique } = require('./tokenName.controller');
-const { addMetabossUpdate } = require('../queues/metabossUpdate.queue');
-const { environmentEnum } = require('../variables/global.variables');
+const { camelCase } = require('lodash');
 const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
@@ -133,11 +131,26 @@ exports.revealNft = async (req, res) => {
       heroTier,
     } = await getRandomTokenFromTome(tome);
 
+    const revealedTokenData = await pool.query(
+      'INSERT INTO tokens (token_address, mint_name, tome, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [
+        tokenAddress,
+        mintName,
+        tome,
+        mintNumber,
+        tokenNumber,
+        statPoints,
+        cosmeticPoints,
+        statTier,
+        cosmeticTier,
+        heroTier,
+      ]
+    );
+
+    const revealedToken = revealedTokenData?.rows?.[0];
+
     const oldMetadataJSON = JSON.stringify(oldMetadata, null, 2);
-    const metadataUrlHash =
-      process.env.NODE_ENV === environmentEnum.development
-        ? extractHashFromIpfsUrl(metadataUri)
-        : extractHashFromArweaveUrl(metadataUri);
+    const metadataUrlHash = extractHashFromArweaveUrl(metadataUri);
     fs.writeFileSync(
       path.resolve(__dirname, `${metadataFolderPath}${metadataUrlHash}.json`),
       oldMetadataJSON
@@ -149,12 +162,6 @@ exports.revealNft = async (req, res) => {
       ...oldMetadata,
       image: imageIpfsUrl,
       external_url: `${process.env.WEBSITE_URL}`,
-      tome,
-      stat_points: statPoints,
-      cosmetic_points: cosmeticPoints,
-      stat_tier: statTier,
-      cosmetic_tier: cosmeticTier,
-      hero_tier: heroTier,
       properties: {
         ...oldMetadata?.properties,
         files: [
@@ -164,10 +171,36 @@ exports.revealNft = async (req, res) => {
           },
         ],
       },
+      description:
+        '1,250 Play-and-Earn Heroes of Aerinhome, introducing The first AAA gaming platform on Solana from the minds behind World of Warcraft, Overwatch, & League of Legends. Vanquish Opponents, Stake, and Rent Your Hero to earn $ZALTA',
       attributes: [
         {
           trait_type: 'Stage',
           value: 'Tome',
+        },
+        {
+          trait_type: 'Tome',
+          value: tome,
+        },
+        {
+          trait_type: 'Hero Tier',
+          value: heroTier,
+        },
+        {
+          trait_type: 'Stat Tier',
+          value: statTier,
+        },
+        {
+          trait_type: 'Cosmetic Tier',
+          value: cosmeticTier,
+        },
+        {
+          trait_type: 'Stat Points',
+          value: statPoints,
+        },
+        {
+          trait_type: 'Cosmetic Points',
+          value: cosmeticPoints,
         },
       ],
     };
@@ -191,32 +224,6 @@ exports.revealNft = async (req, res) => {
       metadataJSON
     );
 
-    // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
-    const metabossUpdate = await addMetabossUpdate({
-      tokenAddress,
-      keypair,
-      metadataIpfsUrl,
-    });
-    await metabossUpdate.finished();
-
-    const revealedTokenData = await pool.query(
-      'INSERT INTO tokens (token_address, mint_name, tome, mint_number, token_number, stat_points, cosmetic_points, stat_tier, cosmetic_tier, hero_tier) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-      [
-        tokenAddress,
-        mintName,
-        tome,
-        mintNumber,
-        tokenNumber,
-        statPoints,
-        cosmeticPoints,
-        statTier,
-        cosmeticTier,
-        heroTier,
-      ]
-    );
-
-    const revealedToken = revealedTokenData?.rows?.[0];
-
     await pool.query(
       'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
       [revealedToken.id, nftStages.minted, metadataUri, oldMetadata?.image]
@@ -226,6 +233,8 @@ exports.revealNft = async (req, res) => {
       'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
       [revealedToken.id, nftStages.revealed, metadataIpfsUrl, imageIpfsUrl]
     );
+
+    await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
 
     res.status(200).send({
       tokenAddress,
@@ -447,7 +456,8 @@ exports.fetchNfts = async (req, res) => {
       data: {
         ...nft.data,
         customMetaData: {},
-        token_name_status: null,
+        tokenNameStatus: null,
+        isRevealed: false,
         isCustomized: false,
       },
     }));
@@ -462,20 +472,39 @@ exports.fetchNfts = async (req, res) => {
 
     // eslint-disable-next-line no-undef
     const nftsDataDB = await Promise.allSettled(
-      cryptoquestNftsWithMetadata.map(async (tokenData) => {
-        const tokenDataDB = await fetchTokenData(tokenData.mint);
-        return tokenDataDB;
+      cryptoquestNftsWithMetadata.map(async ({ mint }) => {
+        const currentNft = await selectTokenByAddress(mint);
+
+        if (!currentNft) return null;
+
+        const tokenNameStatus = await fetchTokenNameStatus(currentNft.id);
+        const isRevealed = await checkIsTokenAlreadyRevealed(mint);
+        const isCustomized = await checkIsTokenAlreadyCustomized(currentNft.id);
+
+        return { tokenNameStatus, isRevealed, isCustomized };
       })
     );
 
     cryptoquestNftsWithMetadata.forEach(async (tokenData, index) => {
       const metaData = nftsMetaData[index]?.value;
       if (metaData) {
-        tokenData.data.customMetaData = metaData;
-      }
-      const tokenDataDB = nftsDataDB[index]?.value;
+        const attributes = metaData.attributes.reduce(
+          (obj, item) =>
+            Object.assign(obj, { [camelCase(item.trait_type)]: item.value }),
+          {}
+        );
 
-      tokenData.data.token_name_status = tokenDataDB.token_name_status;
+        tokenData.data.customMetaData = {
+          ...metaData,
+          attributes,
+        };
+      }
+
+      const tokenDataDB = nftsDataDB[index]?.value;
+      if (!tokenDataDB) return;
+
+      tokenData.data.tokenNameStatus = tokenDataDB.tokenNameStatus;
+      tokenData.data.isRevealed = tokenDataDB.isRevealed;
       tokenData.data.isCustomized = tokenDataDB.isCustomized;
     });
 

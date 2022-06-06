@@ -19,7 +19,6 @@ const {
   checkIsTokenAlreadyCustomized,
 } = require('../utils/nft.utils');
 const { getPinataCredentials } = require('../utils/pinata');
-const { addMetabossUpdate } = require('../queues/metabossUpdate.queue');
 const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
@@ -158,13 +157,7 @@ const handleTokenNameStatusChange = async (
     metadataJSON
   );
 
-  // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
-  const metabossUpdate = await addMetabossUpdate({
-    tokenAddress,
-    keypair,
-    metadataIpfsUrl,
-  });
-  await metabossUpdate.finished();
+  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
 
   await pool.query(
     'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',

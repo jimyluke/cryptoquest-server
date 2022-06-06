@@ -1,10 +1,19 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
-const { deprecated } = require('@metaplex-foundation/mpl-token-metadata');
+const path = require('path');
+const fs = require('fs');
+const {
+  deprecated,
+  PROGRAM_ID,
+} = require('@metaplex-foundation/mpl-token-metadata');
 const retry = require('async-retry');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
 const { environmentEnum } = require('../variables/global.variables');
+const { uploadJson, getPinataCredentials } = require('./pinata');
+const { nftStages } = require('../variables/nft.variables');
+
+const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 exports.throwErrorNoMetadata = (tokenAddress) => {
   throw new Error(
@@ -93,3 +102,412 @@ exports.updateMetadataUrlSolana = async (
     this.throwErrorSolanaUnavailable();
   }
 };
+
+exports.updateTokenNameSolana = async (tokenAddress, keypair, tokenName) => {
+  try {
+    const { stderr } = await retry(
+      async () => {
+        return await exec(
+          `metaboss -r ${this.getSolanaRpcEndpoint()} update name -a ${tokenAddress} -k ${keypair} --new-name '${tokenName}'`
+        );
+      },
+      {
+        retries: 5,
+      }
+    );
+
+    if (stderr) console.error('METABOSS STDERR:', stderr);
+  } catch (error) {
+    this.throwErrorSolanaUnavailable();
+  }
+};
+
+// class TokenInfo {
+//   metadataAccount;
+//   nftTokenMint;
+//   nftName;
+//   metadataUri;
+
+//   constructor(metadataAccount, tokenMint) {
+//     this.metadataAccount = metadataAccount;
+//     this.nftTokenMint = tokenMint;
+//   }
+// }
+
+// const getAllNftsForUpdateAuthtority = async (connection, updateAuthtority) => {
+//   const config = {
+//     commitment: undefined,
+//     encoding: 'base64',
+//     dataSlice: undefined,
+//     filters: [
+//       {
+//         memcmp: {
+//           offset: 1,
+//           bytes: updateAuthtority,
+//         },
+//       },
+//     ],
+//   };
+
+//   const accountList = await connection.getProgramAccounts(PROGRAM_ID, config);
+
+//   const allInfo = [];
+
+//   for (let i = 0; i < accountList.length; i++) {
+//     const metadataAccountPK = accountList[i].pubkey.toBase58();
+
+//     const tokenMint = new PublicKey(
+//       accountList[i].account.data.slice(1 + 32, 1 + 32 + 32)
+//     ).toBase58();
+
+//     allInfo[i] = new TokenInfo(metadataAccountPK, tokenMint);
+
+//     const nameLenght = accountList[i].account.data.readUInt32LE(1 + 32 + 32);
+//     const nameBuffer = accountList[i].account.data.slice(
+//       1 + 32 + 32 + 4,
+//       1 + 32 + 32 + 4 + 32
+//     );
+
+//     let name = '';
+//     for (let j = 0; j < nameLenght; j++) {
+//       if (nameBuffer.readUInt8(j) == 0) break;
+//       name += String.fromCharCode(nameBuffer.readUInt8(j));
+//     }
+//     allInfo[i].nftName = name;
+//   }
+//   return allInfo;
+// };
+
+// exports.updateMetadataAttributes = async () => {
+//   try {
+//     console.log('##### Establish connection #####');
+//     const connection = new Connection(process.env.MAINNET_CLUSTER_URL);
+
+//     const { pinataApiKey, pinataSecretApiKey, pinataGateway } =
+//       getPinataCredentials();
+
+//     console.log('##### Start changing metadata #####');
+//     // const allNfts = await getAllNftsForUpdateAuthtority(
+//     //   connection,
+//     //   process.env.UPDATE_AUTHORITY_PRODUCTION
+//     // );
+
+//     const allNfts = JSON.parse(
+//       fs.readFileSync(path.resolve(__dirname, '../../allNftsBeforeUpdate.json'))
+//     );
+
+//     const allNftsForUpdateAuthtority = allNfts;
+
+//     // const allNftsForUpdateAuthtority = [
+//     //   {
+//     //     metadataAccount: 'A37zwcdNxVXDzHfvoYLqBUMfdEeiMWB1zYLTBRBKxbRv',
+//     //     nftTokenMint: '7xw7JGiVfD2PEK2r8i8S5RpZGQVGPT4ZSaH6UQCUTY6i',
+//     //     nftName: 'Crypto Quest #97',
+//     //   },
+//     // ];
+
+//     return;
+
+//     // eslint-disable-next-line no-undef
+//     for (let [index, nft] of allNftsForUpdateAuthtority.entries()) {
+//       // if (index < 0) continue;
+
+//       console.log(`________ INDEX: ${index} ________`);
+
+//       console.log('##### Start finding "metadataUri" #####');
+//       const mintPubkey = new PublicKey(nft.nftTokenMint);
+//       const tokenMetadataPubkey = await deprecated.Metadata.getPDA(mintPubkey);
+//       const tokenMetadata = await deprecated.Metadata.load(
+//         connection,
+//         tokenMetadataPubkey
+//       );
+//       allNftsForUpdateAuthtority[index].metadataUri =
+//         tokenMetadata.data.data.uri;
+
+//       console.log('##### Start fetching "metadata" #####');
+//       const oldMetadata = await this.fetchOldMetadata(
+//         nft.nftTokenMint,
+//         nft.metadataUri
+//       );
+//       !oldMetadata && this.throwErrorNoMetadata(nft.nftTokenMint);
+//       allNftsForUpdateAuthtority[index].metadata = oldMetadata;
+
+//       let newMetadata;
+//       let tokenName;
+//       if (oldMetadata.attributes[0].value === 'Key') {
+//         newMetadata = {
+//           ...oldMetadata,
+//           description:
+//             '1,250 Play-and-Earn Heroes of Aerinhome, introducing The first AAA gaming platform on Solana from the minds behind World of Warcraft, Overwatch, & League of Legends. Vanquish Opponents, Stake, and Rent Your Hero to earn $ZALTA',
+//         };
+//       } else if (oldMetadata.attributes[0].value === 'Tome') {
+//         const {
+//           tome,
+//           stat_points,
+//           cosmetic_points,
+//           stat_tier,
+//           cosmetic_tier,
+//           hero_tier,
+//           ...restOfProperties
+//         } = oldMetadata;
+
+//         const attributes = [
+//           ...restOfProperties.attributes,
+//           ...(tome
+//             ? [
+//                 {
+//                   trait_type: 'Tome',
+//                   value: tome,
+//                 },
+//               ]
+//             : []),
+//           ...(hero_tier
+//             ? [
+//                 {
+//                   trait_type: 'Hero Tier',
+//                   value: hero_tier,
+//                 },
+//               ]
+//             : []),
+//           ...(stat_tier
+//             ? [
+//                 {
+//                   trait_type: 'Stat Tier',
+//                   value: stat_tier,
+//                 },
+//               ]
+//             : []),
+//           ...(cosmetic_tier
+//             ? [
+//                 {
+//                   trait_type: 'Cosmetic Tier',
+//                   value: cosmetic_tier,
+//                 },
+//               ]
+//             : []),
+//           ...(stat_points
+//             ? [
+//                 {
+//                   trait_type: 'Stat Points',
+//                   value: stat_points,
+//                 },
+//               ]
+//             : []),
+//           ...(cosmetic_points
+//             ? [
+//                 {
+//                   trait_type: 'Cosmetic Points',
+//                   value: cosmetic_points,
+//                 },
+//               ]
+//             : []),
+//         ];
+
+//         // eslint-disable-next-line no-undef
+//         const attributesSet = new Set();
+//         const uniqueAttributes = attributes.filter((item) =>
+//           !attributesSet.has(JSON.stringify(item))
+//             ? attributesSet.add(JSON.stringify(item))
+//             : false
+//         );
+
+//         newMetadata = {
+//           ...restOfProperties,
+//           description:
+//             '1,250 Play-and-Earn Heroes of Aerinhome, introducing The first AAA gaming platform on Solana from the minds behind World of Warcraft, Overwatch, & League of Legends. Vanquish Opponents, Stake, and Rent Your Hero to earn $ZALTA',
+//           attributes: uniqueAttributes,
+//         };
+//       } else if (oldMetadata.attributes[0].value === 'Hero') {
+//         const {
+//           tome,
+//           stat_points,
+//           cosmetic_points,
+//           stat_tier,
+//           cosmetic_tier,
+//           hero_tier,
+//           token_name,
+//           constitution,
+//           strength,
+//           dexterity,
+//           wisdom,
+//           intelligence,
+//           charisma,
+//           ...restOfProperties
+//         } = oldMetadata;
+
+//         tokenName = token_name;
+
+//         const newAttributesBefore = [
+//           ...(tome
+//             ? [
+//                 {
+//                   trait_type: 'Tome',
+//                   value: tome,
+//                 },
+//               ]
+//             : []),
+//           ...(hero_tier
+//             ? [
+//                 {
+//                   trait_type: 'Hero Tier',
+//                   value: hero_tier,
+//                 },
+//               ]
+//             : []),
+//           ...(stat_tier
+//             ? [
+//                 {
+//                   trait_type: 'Stat Tier',
+//                   value: stat_tier,
+//                 },
+//               ]
+//             : []),
+//           ...(cosmetic_tier
+//             ? [
+//                 {
+//                   trait_type: 'Cosmetic Tier',
+//                   value: cosmetic_tier,
+//                 },
+//               ]
+//             : []),
+//           ...(stat_points
+//             ? [
+//                 {
+//                   trait_type: 'Stat Points',
+//                   value: stat_points,
+//                 },
+//               ]
+//             : []),
+//           ...(cosmetic_points
+//             ? [
+//                 {
+//                   trait_type: 'Cosmetic Points',
+//                   value: cosmetic_points,
+//                 },
+//               ]
+//             : []),
+//         ];
+
+//         const newAttributesAfter = [
+//           ...(constitution
+//             ? [
+//                 {
+//                   trait_type: 'Constitution',
+//                   value: constitution,
+//                 },
+//               ]
+//             : []),
+//           ...(strength
+//             ? [
+//                 {
+//                   trait_type: 'Strength',
+//                   value: strength,
+//                 },
+//               ]
+//             : []),
+//           ...(dexterity
+//             ? [
+//                 {
+//                   trait_type: 'Dexterity',
+//                   value: dexterity,
+//                 },
+//               ]
+//             : []),
+//           ...(wisdom
+//             ? [
+//                 {
+//                   trait_type: 'Wisdom',
+//                   value: wisdom,
+//                 },
+//               ]
+//             : []),
+//           ...(intelligence
+//             ? [
+//                 {
+//                   trait_type: 'Intelligence',
+//                   value: intelligence,
+//                 },
+//               ]
+//             : []),
+//           ...(charisma
+//             ? [
+//                 {
+//                   trait_type: 'Charisma',
+//                   value: charisma,
+//                 },
+//               ]
+//             : []),
+//         ];
+
+//         const attributes = [
+//           restOfProperties.attributes[0],
+//           ...newAttributesBefore,
+//           ...restOfProperties.attributes,
+//           ...newAttributesAfter,
+//         ];
+
+//         // eslint-disable-next-line no-undef
+//         const attributesSet = new Set();
+//         const uniqueAttributes = attributes.filter((item) =>
+//           !attributesSet.has(JSON.stringify(item))
+//             ? attributesSet.add(JSON.stringify(item))
+//             : false
+//         );
+
+//         newMetadata = {
+//           ...restOfProperties,
+//           name: tokenName,
+//           mint_name: restOfProperties.name,
+//           description:
+//             '1,250 Play-and-Earn Heroes of Aerinhome, introducing The first AAA gaming platform on Solana from the minds behind World of Warcraft, Overwatch, & League of Legends. Vanquish Opponents, Stake, and Rent Your Hero to earn $ZALTA',
+//           attributes: uniqueAttributes,
+//         };
+//       } else {
+//         console.log('################################################');
+//         console.log('ERROR: WRONG STAGE');
+//         console.log('################################################');
+//         continue;
+//       }
+
+//       const { metadataIpfsUrl } = await uploadJson(
+//         pinataApiKey,
+//         pinataSecretApiKey,
+//         pinataGateway,
+//         newMetadata,
+//         `${nft.nftTokenMint}-${nftStages.updated}`,
+//         nft.nftTokenMint,
+//         nftStages.updated
+//       );
+
+//       console.log('##### Start updating token name #####');
+
+//       if (tokenName) {
+//         await this.updateTokenNameSolana(nft.nftTokenMint, keypair, tokenName);
+//       }
+
+//       console.log('##### Start updating token metadata #####');
+//       await this.updateMetadataUrlSolana(
+//         nft.nftTokenMint,
+//         keypair,
+//         metadataIpfsUrl
+//       );
+//     }
+
+//     console.log('______________________________________');
+//     console.log(
+//       '##### Writing info about nfts in "allNftsForUpdateAuthtority.json" #####'
+//     );
+//     const metadataJSON = JSON.stringify(allNftsForUpdateAuthtority, null, 2);
+//     fs.writeFileSync(
+//       path.resolve(__dirname, `../../allNftsForUpdateAuthtority.json`),
+//       metadataJSON
+//     );
+//   } catch (error) {
+//     console.log('################################################');
+//     console.error(error.message);
+//     console.log('################################################');
+//   }
+// };
+
+// metaboss -r https://api.devnet.solana.com update uri -a 7xw7JGiVfD2PEK2r8i8S5RpZGQVGPT4ZSaH6UQCUTY6i  -k /home/ali/Desktop/Coding/cryptoquest/keypair.json -u https://arweave.net/OtIV-lorJmvfDiZXSMsCDpmy1EjMJ-3Mey2CB7l2MRw
+// metaboss update name -a 7xw7JGiVfD2PEK2r8i8S5RpZGQVGPT4ZSaH6UQCUTY6i -k /home/ali/Desktop/Coding/cryptoquest/keypair.json --new-name 'Token #1'

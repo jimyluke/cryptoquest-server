@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db.config');
-const { addMetabossUpdate } = require('../queues/metabossUpdate.queue');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const {
   selectTokenByAddress,
@@ -213,13 +212,7 @@ exports.updateMetadataUrlSolanaController = async (req, res) => {
   try {
     const { metadataIpfsUrl, tokenAddress } = req.body;
 
-    // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
-    const metabossUpdate = await addMetabossUpdate({
-      tokenAddress,
-      keypair,
-      metadataIpfsUrl,
-    });
-    await metabossUpdate.finished();
+    await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
 
     res.status(200).send({ success: 'Success' });
   } catch (error) {
@@ -281,13 +274,7 @@ exports.updateMetadataUrlSolanaController = async (req, res) => {
 //       [revealedToken.id, nftStages.revealed, metadataIpfsUrl, image]
 //     );
 
-//     // await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
-//     const metabossUpdate = await addMetabossUpdate({
-//       tokenAddress,
-//       keypair,
-//       metadataIpfsUrl,
-//     });
-//     await metabossUpdate.finished();
+//     await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
 
 //     res.status(200).send({ success: 'Success' });
 //   } catch (error) {

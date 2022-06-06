@@ -25,6 +25,7 @@ exports.nftStages = {
   revealed: 'revealed',
   customized: 'customized',
   renamed: 'renamed',
+  updated: 'updated',
 };
 
 exports.cosmeticTraitsMap = {
@@ -44,6 +45,15 @@ exports.cosmeticTraitsMap = {
   scar: 'Scar',
   tattoo: 'Tattoo',
   background: 'Background',
+};
+
+exports.skillsMap = {
+  constitution: 'Constitution',
+  strength: 'Strength',
+  dexterity: 'Dexterity',
+  wisdom: 'Wisdom',
+  intelligence: 'Intelligence',
+  charisma: 'Charisma',
 };
 
 exports.uploadIpfsType = {
