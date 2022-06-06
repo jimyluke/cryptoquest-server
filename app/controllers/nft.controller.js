@@ -10,6 +10,7 @@ const pool = require('../config/db.config');
 const {
   getPinataCredentials,
   extractHashFromArweaveUrl,
+  extractHashFromIpfsUrl,
 } = require('../utils/pinata');
 const { nftStages, uploadIpfsType } = require('../variables/nft.variables');
 const {
@@ -150,7 +151,14 @@ exports.revealNft = async (req, res) => {
     const revealedToken = revealedTokenData?.rows?.[0];
 
     const oldMetadataJSON = JSON.stringify(oldMetadata, null, 2);
-    const metadataUrlHash = extractHashFromArweaveUrl(metadataUri);
+
+    let metadataUrlHash;
+    if (metadataUri.includes('arweave')) {
+      metadataUrlHash = extractHashFromArweaveUrl(metadataUri);
+    } else {
+      metadataUrlHash = extractHashFromIpfsUrl(metadataUri);
+    }
+
     fs.writeFileSync(
       path.resolve(__dirname, `${metadataFolderPath}${metadataUrlHash}.json`),
       oldMetadataJSON
