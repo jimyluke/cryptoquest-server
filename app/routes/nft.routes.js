@@ -15,7 +15,13 @@ module.exports = function (app) {
   });
 
   // Fetch nfts
-  app.post('/api/nfts', controller.fetchNfts);
+  app.get('/api/nfts/all', controller.fetchNftsAll);
+
+  // Fetch nft
+  app.get('/api/nfts/single', controller.fetchNft);
+
+  // Fetch inventory nfts
+  app.post('/api/nfts/inventory', controller.fetchInventoryNfts);
 
   // Check is nft unique
   app.post(

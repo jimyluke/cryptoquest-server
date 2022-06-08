@@ -4,6 +4,8 @@ const retry = require('async-retry');
 const {
   getParsedNftAccountsByOwner,
   resolveToWalletAddress,
+  getSolanaMetadataAddress,
+  decodeTokenMetadata,
 } = require('@nfteyez/sol-rayz');
 
 const pool = require('../config/db.config');
@@ -19,6 +21,7 @@ const {
   throwErrorNoMetadata,
   getSolanaConnection,
   getUpdateAuthtority,
+  sanitizeTokenMeta,
 } = require('../utils/solana');
 const {
   getHeroTierImageFromIpfs,
@@ -40,6 +43,7 @@ const {
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { checkIsTokenNameUnique } = require('./tokenName.controller');
 const { camelCase } = require('lodash');
+const { Connection, PublicKey } = require('@solana/web3.js');
 const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
 const metadataFolderPath = '../../../metadata/';
@@ -411,7 +415,7 @@ exports.customizeNft = async (req, res) => {
   }
 };
 
-exports.fetchNfts = async (req, res) => {
+exports.fetchInventoryNfts = async (req, res) => {
   try {
     const { publicKey, tokenAddress } = req.body;
 
@@ -517,6 +521,70 @@ exports.fetchNfts = async (req, res) => {
     });
 
     res.status(200).send({ nfts: cryptoquestNftsWithMetadata });
+  } catch (error) {
+    console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
+  }
+};
+
+exports.fetchNftsAll = async (req, res) => {
+  try {
+    const nfts = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, `../../allNftsWithMetadata.json`))
+    );
+
+    res.status(200).send({ nfts });
+  } catch (error) {
+    console.error(error.message);
+    res.status(404).send({
+      message: error.message,
+    });
+  }
+};
+
+exports.fetchNft = async (req, res) => {
+  try {
+    const { tokenAddress } = req.query;
+
+    const connection = new Connection(process.env.MAINNET_CLUSTER_URL);
+
+    const mintPublicKey = new PublicKey(tokenAddress);
+
+    const metadataAccountPublicKey = await getSolanaMetadataAddress(
+      mintPublicKey
+    );
+
+    const accountInfo = await connection.getAccountInfo(
+      metadataAccountPublicKey
+    );
+
+    const decodedMetadata = await decodeTokenMetadata(accountInfo.data);
+
+    const sanitizedMetadata = sanitizeTokenMeta(decodedMetadata);
+
+    let metadata = await fetchOldMetadata(
+      tokenAddress,
+      sanitizedMetadata.data.uri
+    );
+    const attributes = metadata?.attributes.reduce(
+      (obj, item) =>
+        Object.assign(obj, { [camelCase(item.trait_type)]: item.value }),
+      {}
+    );
+
+    metadata = { ...metadata, attributes };
+
+    const nft = {
+      ...sanitizedMetadata,
+      data: {
+        ...sanitizedMetadata.data,
+        customMetaData: metadata,
+      },
+    };
+
+    res.status(200).send(nft);
   } catch (error) {
     console.error(error.message);
     res.status(404).send({

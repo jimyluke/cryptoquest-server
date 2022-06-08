@@ -122,60 +122,192 @@ exports.updateTokenNameSolana = async (tokenAddress, keypair, tokenName) => {
   }
 };
 
-// class TokenInfo {
-//   metadataAccount;
-//   nftTokenMint;
-//   nftName;
-//   metadataUri;
+exports.sanitizeTokenMeta = (tokenData) => ({
+  ...tokenData,
+  data: {
+    ...tokenData?.data,
+    name: this.sanitizeMetaStrings(tokenData?.data?.name),
+    symbol: this.sanitizeMetaStrings(tokenData?.data?.symbol),
+    uri: this.sanitizeMetaStrings(tokenData?.data?.uri),
+  },
+});
 
-//   constructor(metadataAccount, tokenMint) {
-//     this.metadataAccount = metadataAccount;
-//     this.nftTokenMint = tokenMint;
-//   }
-// }
+exports.sanitizeMetaStrings = (metaString) => metaString.replace(/\0/g, '');
 
-// const getAllNftsForUpdateAuthtority = async (connection, updateAuthtority) => {
-//   const config = {
-//     commitment: undefined,
-//     encoding: 'base64',
-//     dataSlice: undefined,
-//     filters: [
-//       {
-//         memcmp: {
-//           offset: 1,
-//           bytes: updateAuthtority,
-//         },
-//       },
-//     ],
-//   };
+class TokenInfo {
+  metadataAccount;
+  nftTokenMint;
+  nftName;
+  metadataUri;
 
-//   const accountList = await connection.getProgramAccounts(PROGRAM_ID, config);
+  constructor(metadataAccount, tokenMint) {
+    this.metadataAccount = metadataAccount;
+    this.nftTokenMint = tokenMint;
+  }
+}
 
-//   const allInfo = [];
+const getAllNftsForUpdateAuthtority = async (connection, updateAuthtority) => {
+  const config = {
+    commitment: undefined,
+    encoding: 'base64',
+    dataSlice: undefined,
+    filters: [
+      {
+        memcmp: {
+          offset: 1,
+          bytes: updateAuthtority,
+        },
+      },
+    ],
+  };
 
-//   for (let i = 0; i < accountList.length; i++) {
-//     const metadataAccountPK = accountList[i].pubkey.toBase58();
+  const accountList = await connection.getProgramAccounts(PROGRAM_ID, config);
 
-//     const tokenMint = new PublicKey(
-//       accountList[i].account.data.slice(1 + 32, 1 + 32 + 32)
-//     ).toBase58();
+  const allInfo = [];
 
-//     allInfo[i] = new TokenInfo(metadataAccountPK, tokenMint);
+  for (let i = 0; i < accountList.length; i++) {
+    const metadataAccountPK = accountList[i].pubkey.toBase58();
 
-//     const nameLenght = accountList[i].account.data.readUInt32LE(1 + 32 + 32);
-//     const nameBuffer = accountList[i].account.data.slice(
-//       1 + 32 + 32 + 4,
-//       1 + 32 + 32 + 4 + 32
+    const tokenMint = new PublicKey(
+      accountList[i].account.data.slice(1 + 32, 1 + 32 + 32)
+    ).toBase58();
+
+    allInfo[i] = new TokenInfo(metadataAccountPK, tokenMint);
+
+    const nameLenght = accountList[i].account.data.readUInt32LE(1 + 32 + 32);
+    const nameBuffer = accountList[i].account.data.slice(
+      1 + 32 + 32 + 4,
+      1 + 32 + 32 + 4 + 32
+    );
+
+    let name = '';
+    for (let j = 0; j < nameLenght; j++) {
+      if (nameBuffer.readUInt8(j) == 0) break;
+      name += String.fromCharCode(nameBuffer.readUInt8(j));
+    }
+    allInfo[i].nftName = name;
+  }
+  return allInfo;
+};
+
+exports.checkNfts = async () => {
+  try {
+    console.log('##### Start fetching metadata #####');
+    const allNftsWithMetadata = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, '../../allNftsWithMetadata.json'))
+    );
+
+    const heroNfts = allNftsWithMetadata.filter(
+      (nft) => nft.metadata.attributes[0].value === 'Hero'
+    );
+
+    const nftNames = heroNfts.map((nft) => nft.solanaData.data.name);
+
+    const metadataJSON = JSON.stringify(nftNames, null, 2);
+    fs.writeFileSync(
+      path.resolve(__dirname, `../../nftNames.json`),
+      metadataJSON
+    );
+
+    console.log(nftNames);
+  } catch (error) {
+    console.log(error.message);
+  }
+};
+
+exports.fetchMetadataForAllNfts = async () => {
+  try {
+    console.log('##### Establish connection #####');
+    const connection = new Connection(process.env.MAINNET_CLUSTER_URL);
+
+    console.log('##### Start fetching metadata #####');
+    const allNfts = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, '../../../allNfts.json'))
+    );
+
+    // eslint-disable-next-line no-undef
+    await Promise.all(
+      allNfts.map(async (nft, index) => {
+        console.log(`________ INDEX: ${index} ________`);
+
+        console.log(`##### Start finding "metadataUri": ${index} #####`);
+        const mintPubkey = new PublicKey(nft.nftTokenMint);
+        const tokenMetadataPubkey = await deprecated.Metadata.getPDA(
+          mintPubkey
+        );
+        const tokenMetadata = await deprecated.Metadata.load(
+          connection,
+          tokenMetadataPubkey
+        );
+        allNfts[index].solanaData = tokenMetadata.data;
+        allNfts[index].metadataUri = tokenMetadata.data.data.uri;
+
+        console.log(`##### Start fetching "metadata": ${index} #####`);
+        const oldMetadata = await this.fetchOldMetadata(
+          nft.nftTokenMint,
+          nft.metadataUri
+        );
+        !oldMetadata && this.throwErrorNoMetadata(nft.nftTokenMint);
+        allNfts[index].metadata = oldMetadata;
+      })
+    );
+
+    console.log(
+      '##### Writing info about nfts in "allNftsWithMetadata.json" #####'
+    );
+    const metadataJSON = JSON.stringify(allNfts, null, 2);
+    fs.writeFileSync(
+      path.resolve(__dirname, `../../allNftsWithMetadata.json`),
+      metadataJSON
+    );
+  } catch (error) {
+    console.log(error.message);
+  }
+};
+
+// exports.fetchMetadataForAllNfts = async () => {
+//   try {
+//     console.log('##### Establish connection #####');
+//     const connection = new Connection(process.env.MAINNET_CLUSTER_URL);
+
+//     console.log('##### Start fetching metadata #####');
+//     const allNfts = JSON.parse(
+//       fs.readFileSync(path.resolve(__dirname, '../../../allNfts.json'))
 //     );
 
-//     let name = '';
-//     for (let j = 0; j < nameLenght; j++) {
-//       if (nameBuffer.readUInt8(j) == 0) break;
-//       name += String.fromCharCode(nameBuffer.readUInt8(j));
+//     for (let [index, nft] of allNfts.entries()) {
+//       console.log(`________ INDEX: ${index} ________`);
+
+//       console.log('##### Start finding "metadataUri" #####');
+//       const mintPubkey = new PublicKey(nft.nftTokenMint);
+//       const tokenMetadataPubkey = await deprecated.Metadata.getPDA(mintPubkey);
+//       const tokenMetadata = await deprecated.Metadata.load(
+//         connection,
+//         tokenMetadataPubkey
+//       );
+//       allNfts[index].solanaData = tokenMetadata.data;
+//       allNfts[index].metadataUri = tokenMetadata.data.data.uri;
+
+//       console.log('##### Start fetching "metadata" #####');
+//       const oldMetadata = await this.fetchOldMetadata(
+//         nft.nftTokenMint,
+//         nft.metadataUri
+//       );
+//       !oldMetadata && this.throwErrorNoMetadata(nft.nftTokenMint);
+//       allNfts[index].metadata = oldMetadata;
+
+//       console.log(
+//         '##### Writing info about nfts in "allNftsWithMetadata.json" #####'
+//       );
+//       const metadataJSON = JSON.stringify(allNfts, null, 2);
+//       fs.writeFileSync(
+//         path.resolve(__dirname, `../../allNftsWithMetadata.json`),
+//         metadataJSON
+//       );
 //     }
-//     allInfo[i].nftName = name;
+//   } catch (error) {
+//     console.log(error.message);
 //   }
-//   return allInfo;
 // };
 
 // exports.updateMetadataAttributes = async () => {
