@@ -12,7 +12,8 @@ const { getPinataCredentials } = require('../utils/pinata');
 const {
   fetchOldMetadata,
   throwErrorNoMetadata,
-  updateMetadataUrlSolana,
+  getSolanaConnection,
+  updateMetaplexMetadata,
 } = require('../utils/solana');
 const { nftStages, uploadIpfsType } = require('../variables/nft.variables');
 
@@ -23,6 +24,8 @@ const { pinataApiKey, pinataSecretApiKey, pinataGateway } =
 exports.rerenderToken = async (req, res) => {
   try {
     const { tokenAddress } = req.body;
+
+    const connection = getSolanaConnection();
 
     const currentNft = await selectTokenByAddress(tokenAddress);
     if (!currentNft) {
@@ -138,6 +141,7 @@ exports.rerenderToken = async (req, res) => {
     );
 
     await updateSolanaMetadataAfterCustomization(
+      connection,
       cosmeticTraits,
       currentNft,
       tokenAddress,
@@ -212,7 +216,14 @@ exports.updateMetadataUrlSolanaController = async (req, res) => {
   try {
     const { metadataIpfsUrl, tokenAddress } = req.body;
 
-    await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+    const connection = getSolanaConnection();
+
+    await updateMetaplexMetadata(
+      connection,
+      keypair,
+      tokenAddress,
+      metadataIpfsUrl
+    );
 
     res.status(200).send({ success: 'Success' });
   } catch (error) {

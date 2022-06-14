@@ -1,4 +1,9 @@
-const { Connection, PublicKey } = require('@solana/web3.js');
+const {
+  Connection,
+  PublicKey,
+  Keypair,
+  sendAndConfirmTransaction,
+} = require('@solana/web3.js');
 const path = require('path');
 const fs = require('fs');
 const {
@@ -12,6 +17,11 @@ const axios = require('axios');
 const { environmentEnum } = require('../variables/global.variables');
 const { uploadJson, getPinataCredentials } = require('./pinata');
 const { nftStages } = require('../variables/nft.variables');
+const {
+  Creator,
+  MetadataDataData,
+  UpdateMetadata,
+} = require('@metaplex-foundation/mpl-token-metadata/dist/deprecated');
 
 const keypair = path.resolve(__dirname, `../../../keypair.json`);
 
@@ -27,7 +37,7 @@ exports.throwErrorSolanaUnavailable = () => {
   );
 };
 
-exports.getSolanaConnection = async () => {
+exports.getSolanaConnection = () => {
   const clusterUrl =
     process.env.NODE_ENV === environmentEnum.development
       ? process.env.DEVNET_CLUSTER_URL
@@ -50,7 +60,7 @@ exports.getUpdateAuthtority = () => {
 };
 
 exports.fetchTokenMetadataByTokenAddress = async (tokenAddress) => {
-  const connection = await this.getSolanaConnection();
+  const connection = this.getSolanaConnection();
 
   const mintPubkey = new PublicKey(tokenAddress);
 
@@ -77,6 +87,57 @@ exports.fetchOldMetadata = async (tokenAddress, metadataUri) => {
     return data;
   } catch (error) {
     this.throwErrorNoMetadata(tokenAddress);
+  }
+};
+
+exports.updateMetaplexMetadata = async (
+  connection,
+  keypairPath,
+  tokenAddress,
+  newMetadataUri,
+  newTokenName
+) => {
+  try {
+    const keypairArray = JSON.parse(fs.readFileSync(keypairPath));
+    // eslint-disable-next-line no-undef
+    const keypairUnit8Array = Uint8Array.from(keypairArray);
+    const keypairObject = Keypair.fromSecretKey(keypairUnit8Array);
+
+    let nftMintAccount = new PublicKey(tokenAddress);
+    let metadataAccount = await deprecated.Metadata.getPDA(nftMintAccount);
+    const metadata = await deprecated.Metadata.load(
+      connection,
+      metadataAccount
+    );
+
+    const creators = metadata.data.data.creators.map(
+      (el) =>
+        new Creator({
+          ...el,
+        })
+    );
+
+    const newMetadataData = new MetadataDataData({
+      name: newTokenName ? newTokenName : metadata.data.data.name,
+      symbol: metadata.data.data.symbol,
+      uri: newMetadataUri,
+      creators: [...creators],
+      sellerFeeBasisPoints: metadata.data.data.sellerFeeBasisPoints,
+    });
+
+    const updateTx = new UpdateMetadata(
+      { feePayer: keypairObject.publicKey },
+      {
+        metadata: metadataAccount,
+        updateAuthority: keypairObject.publicKey,
+        metadataData: newMetadataData,
+      }
+    );
+
+    await sendAndConfirmTransaction(connection, updateTx, [keypairObject]);
+  } catch (error) {
+    console.error(error.message);
+    this.throwErrorSolanaUnavailable();
   }
 };
 

@@ -20,7 +20,7 @@ const {
 const pool = require('../config/db.config');
 
 const { getPinataCredentials } = require('./pinata');
-const { updateMetadataUrlSolana, updateTokenNameSolana } = require('./solana');
+const { updateMetaplexMetadata } = require('./solana');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { addBlenderRender } = require('../queues/blenderRender.queue');
 
@@ -247,6 +247,7 @@ exports.checkIsTokenIdUnique = async (tokenId) => {
 };
 
 exports.updateSolanaMetadataAfterCustomization = async (
+  connection,
   cosmeticTraits,
   currentNft,
   tokenAddress,
@@ -358,10 +359,13 @@ exports.updateSolanaMetadataAfterCustomization = async (
     [currentNft.id, nftStages.customized, metadataIpfsUrl, imageUrl]
   );
 
-  if (!rerenderedImageUrl) {
-    await updateTokenNameSolana(tokenAddress, keypair, tokenName);
-  }
-  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+  await updateMetaplexMetadata(
+    connection,
+    keypair,
+    tokenAddress,
+    metadataIpfsUrl,
+    tokenName
+  );
 
   return { metadataIpfsUrl };
 };

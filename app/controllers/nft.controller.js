@@ -16,12 +16,12 @@ const {
 } = require('../utils/pinata');
 const { nftStages, uploadIpfsType } = require('../variables/nft.variables');
 const {
-  updateMetadataUrlSolana,
   fetchOldMetadata,
   throwErrorNoMetadata,
   getSolanaConnection,
   getUpdateAuthtority,
   sanitizeTokenMeta,
+  updateMetaplexMetadata,
 } = require('../utils/solana');
 const {
   getHeroTierImageFromIpfs,
@@ -116,6 +116,8 @@ exports.availableTomes = async (req, res) => {
 exports.revealNft = async (req, res) => {
   try {
     const { tokenAddress, metadataUri, mintName, mintNumber, tome } = req.body;
+
+    const connection = getSolanaConnection();
 
     const oldMetadata = await fetchOldMetadata(tokenAddress, metadataUri);
     !oldMetadata && throwErrorNoMetadata(tokenAddress);
@@ -246,7 +248,12 @@ exports.revealNft = async (req, res) => {
       [revealedToken.id, nftStages.revealed, metadataIpfsUrl, imageIpfsUrl]
     );
 
-    await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+    await updateMetaplexMetadata(
+      connection,
+      keypair,
+      tokenAddress,
+      metadataIpfsUrl
+    );
 
     res.status(200).send({
       tokenAddress,
@@ -279,6 +286,8 @@ exports.customizeNft = async (req, res) => {
       skills,
       metadataUri,
     } = req.body;
+
+    const connection = getSolanaConnection();
 
     const isTokenIdExist = await checkIsTokenIdUnique(tokenId);
     if (isTokenIdExist) {
@@ -371,6 +380,7 @@ exports.customizeNft = async (req, res) => {
     res.status(200).send({ success: 'Success' });
 
     const { metadataIpfsUrl } = await updateSolanaMetadataAfterCustomization(
+      connection,
       cosmeticTraits,
       currentNft,
       tokenAddress,
@@ -393,6 +403,7 @@ exports.customizeNft = async (req, res) => {
     !metadataAfterInitialUpload && throwErrorNoMetadata(tokenAddress);
 
     await updateSolanaMetadataAfterCustomization(
+      connection,
       cosmeticTraits,
       currentNft,
       tokenAddress,
@@ -419,7 +430,7 @@ exports.fetchInventoryNfts = async (req, res) => {
   try {
     const { publicKey, tokenAddress } = req.body;
 
-    const connection = await getSolanaConnection();
+    const connection = getSolanaConnection();
 
     const publicAddress = await retry(
       async () => {
@@ -500,11 +511,15 @@ exports.fetchInventoryNfts = async (req, res) => {
     cryptoquestNftsWithMetadata.forEach(async (tokenData, index) => {
       const metaData = nftsMetaData[index]?.value;
       if (metaData) {
-        const attributes = metaData.attributes.reduce(
-          (obj, item) =>
-            Object.assign(obj, { [camelCase(item.trait_type)]: item.value }),
-          {}
-        );
+        const attributes = metaData.attributes
+          ? metaData.attributes.reduce(
+              (obj, item) =>
+                Object.assign(obj, {
+                  [camelCase(item.trait_type)]: item.value,
+                }),
+              {}
+            )
+          : {};
 
         tokenData.data.customMetaData = {
           ...metaData,

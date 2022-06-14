@@ -71,7 +71,7 @@ exports.verifyIsWalletOwnsNft = async (req, res, next) => {
   try {
     const { publicKey, tokenAddress } = req.body;
 
-    const connection = await getSolanaConnection();
+    const connection = getSolanaConnection();
 
     let result;
     try {

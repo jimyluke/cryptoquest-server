@@ -6,7 +6,8 @@ const {
   fetchOldMetadata,
   throwErrorNoMetadata,
   fetchTokenMetadataByTokenAddress,
-  updateMetadataUrlSolana,
+  updateMetaplexMetadata,
+  getSolanaConnection,
 } = require('../utils/solana');
 const { tokenNameStatuses } = require('../variables/tokenName.variables');
 const { uploadIpfsType, nftStages } = require('../variables/nft.variables');
@@ -95,6 +96,8 @@ const handleTokenNameStatusChange = async (
   status,
   editedTokenName
 ) => {
+  const connection = getSolanaConnection();
+
   const tokenNameDataQuery = await pool.query(
     'SELECT * FROM token_names WHERE id = $1',
     [tokenNameId]
@@ -157,7 +160,12 @@ const handleTokenNameStatusChange = async (
     metadataJSON
   );
 
-  await updateMetadataUrlSolana(tokenAddress, keypair, metadataIpfsUrl);
+  await updateMetaplexMetadata(
+    connection,
+    keypair,
+    tokenAddress,
+    metadataIpfsUrl
+  );
 
   await pool.query(
     'INSERT INTO metadata (nft_id, stage, metadata_url, image_url) VALUES($1, $2, $3, $4) RETURNING *',
