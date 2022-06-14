@@ -46,8 +46,8 @@ exports.rerenderToken = async (req, res) => {
       constitution,
       strength,
       dexterity,
-      wisdom,
       intelligence,
+      wisdom,
       charisma,
       race,
       sex,
@@ -121,8 +121,8 @@ exports.rerenderToken = async (req, res) => {
       constitution,
       strength,
       dexterity,
-      wisdom,
       intelligence,
+      wisdom,
       charisma,
     };
 
