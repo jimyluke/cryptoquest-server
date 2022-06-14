@@ -1,3 +1,5 @@
+const { deprecated } = require('@metaplex-foundation/mpl-token-metadata');
+const { PublicKey } = require('@solana/web3.js');
 const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db.config');
@@ -81,11 +83,14 @@ exports.rerenderToken = async (req, res) => {
       );
     }
 
-    const metadataQuery = await pool.query(
-      'SELECT * FROM metadata WHERE nft_id = $1 AND stage = $2 ORDER BY updated_at DESC LIMIT 1',
-      [currentNft.id, nftStages.revealed]
+    const nftMintAccount = new PublicKey(tokenAddress);
+    const metadataAccount = await deprecated.Metadata.getPDA(nftMintAccount);
+    const metadata = await deprecated.Metadata.load(
+      connection,
+      metadataAccount
     );
-    const metadataUrl = metadataQuery?.rows?.[0]?.metadata_url;
+    const metadataUrl = metadata.data.data.uri;
+
     if (!metadataUrl) {
       throw new Error(
         `There is no metadata url for nft with address ${tokenAddress.slice(
