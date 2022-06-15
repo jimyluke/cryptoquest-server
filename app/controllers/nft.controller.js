@@ -485,7 +485,6 @@ exports.fetchInventoryNfts = async (req, res) => {
       },
     }));
 
-    // eslint-disable-next-line no-undef
     const nftsMetaData = await Promise.allSettled(
       cryptoquestNftsWithMetadata.map(async (tokenData) => {
         const metaData = await getMetaData(tokenData);
@@ -493,7 +492,6 @@ exports.fetchInventoryNfts = async (req, res) => {
       })
     );
 
-    // eslint-disable-next-line no-undef
     const nftsDataDB = await Promise.allSettled(
       cryptoquestNftsWithMetadata.map(async ({ mint }) => {
         const currentNft = await selectTokenByAddress(mint);

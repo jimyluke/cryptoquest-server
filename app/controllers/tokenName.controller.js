@@ -69,7 +69,6 @@ exports.loadTokenNames = async (req, res) => {
       'SELECT * FROM token_names'
     );
 
-    // eslint-disable-next-line no-undef
     const allTokenNamesData = await Promise.all(
       allTokenNames.map(async (tokenName) => {
         const nftData = await pool.query('SELECT * FROM tokens WHERE id = $1', [

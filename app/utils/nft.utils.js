@@ -190,7 +190,6 @@ exports.getRandomTokenFromTome = async (tome) => {
       const revealedTokenNumbers = revealedTokensFromTome?.rows.map(
         (item) => item?.token_number
       );
-      // eslint-disable-next-line no-undef
       const revealedTokenNumbersSet = new Set(revealedTokenNumbers);
 
       const remainingTokenNumbers = allTokenNumbers.filter(
@@ -279,7 +278,6 @@ exports.updateSolanaMetadataAfterCustomization = async (
 
   const imageUrl = rerenderedImageUrl ? rerenderedImageUrl : oldMetadata?.image;
 
-  // eslint-disable-next-line no-undef
   const attributesSet = new Set();
   const uniqueAttributes = attributes.filter((item) =>
     !attributesSet.has(JSON.stringify(item))

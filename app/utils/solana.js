@@ -99,7 +99,6 @@ exports.updateMetaplexMetadata = async (
 ) => {
   try {
     const keypairArray = JSON.parse(fs.readFileSync(keypairPath));
-    // eslint-disable-next-line no-undef
     const keypairUnit8Array = Uint8Array.from(keypairArray);
     const keypairObject = Keypair.fromSecretKey(keypairUnit8Array);
 
@@ -286,7 +285,6 @@ exports.fetchMetadataForAllNfts = async () => {
       fs.readFileSync(path.resolve(__dirname, '../../../allNfts.json'))
     );
 
-    // eslint-disable-next-line no-undef
     await Promise.all(
       allNfts.map(async (nft, index) => {
         console.log(`________ INDEX: ${index} ________`);
@@ -401,7 +399,6 @@ exports.fetchMetadataForAllNfts = async () => {
 
 //     return;
 
-//     // eslint-disable-next-line no-undef
 //     for (let [index, nft] of allNftsForUpdateAuthtority.entries()) {
 //       // if (index < 0) continue;
 
@@ -496,7 +493,6 @@ exports.fetchMetadataForAllNfts = async () => {
 //             : []),
 //         ];
 
-//         // eslint-disable-next-line no-undef
 //         const attributesSet = new Set();
 //         const uniqueAttributes = attributes.filter((item) =>
 //           !attributesSet.has(JSON.stringify(item))
@@ -639,7 +635,6 @@ exports.fetchMetadataForAllNfts = async () => {
 //           ...newAttributesAfter,
 //         ];
 
-//         // eslint-disable-next-line no-undef
 //         const attributesSet = new Set();
 //         const uniqueAttributes = attributes.filter((item) =>
 //           !attributesSet.has(JSON.stringify(item))
