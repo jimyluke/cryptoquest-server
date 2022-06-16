@@ -94,6 +94,7 @@ CREATE TABLE woodland_respite(
   ht_points_sp NUMERIC(7, 3) NOT NULL,
   ht_points_total NUMERIC(7, 3) NOT NULL,
   hero_tier VARCHAR(100) NOT NULL,
+  legacy NUMERIC(7, 3) NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -112,6 +113,7 @@ CREATE TABLE dawn_of_man(
   ht_points_sp NUMERIC(7, 3) NOT NULL,
   ht_points_total NUMERIC(7, 3) NOT NULL,
   hero_tier VARCHAR(100) NOT NULL,
+  legacy NUMERIC(7, 3) NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
