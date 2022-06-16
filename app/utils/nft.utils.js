@@ -20,9 +20,12 @@ const {
 const pool = require('../config/db.config');
 
 const { getPinataCredentials } = require('./pinata');
-const { updateMetaplexMetadata } = require('./solana');
+const { updateMetaplexMetadata, fetchOldMetadata } = require('./solana');
 const { addUploadIpfs } = require('../queues/uploadIpfs.queue');
 const { addBlenderRender } = require('../queues/blenderRender.queue');
+const { Connection } = require('@solana/web3.js');
+const { getParsedNftAccountsByUpdateAuthority } = require('@nfteyez/sol-rayz');
+const { camelCase } = require('lodash');
 
 const blenderOutputFolderPathRelative = '../../../blender_output/';
 const metadataFolderPath = '../../../metadata/';
@@ -450,4 +453,79 @@ exports.getMetaData = async (tokenData) => {
       retries: 5,
     }
   );
+};
+
+exports.generateNftsMetadata = async () => {
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const connection = new Connection(process.env.MAINNET_CLUSTER_URL);
+
+    const parsedNfts = await retry(
+      async () => {
+        return await getParsedNftAccountsByUpdateAuthority({
+          updateAuthority: process.env.UPDATE_AUTHORITY_PRODUCTION,
+          connection,
+        });
+      },
+      {
+        retries: 5,
+      }
+    );
+
+    const filteredNfts = parsedNfts.filter(
+      (nft) =>
+        nft.mint.toBase58() !== 'BHMurHBSfVJuvMCSvYBTb3GmWGRX1S18Ui8XZf7fGc9n'
+    );
+
+    const nftsWithMetadataPrevious = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, `../../allNftsWithMetadata.json`))
+    );
+
+    // eslint-disable-next-line no-undef
+    const nftsWithMetadata = await Promise.all(
+      filteredNfts.map(async (nft) => {
+        const mint = nft.mint.toBase58();
+        const name = nft.data.name.replaceAll('\u0000', '');
+        const symbol = nft.data.symbol.replaceAll('\u0000', '');
+        const uri = nft.data.uri.replaceAll('\u0000', '');
+
+        const nftPrevious = nftsWithMetadataPrevious.find(
+          (nftPrevious) => nftPrevious.mint === mint
+        );
+
+        let oldMetadata;
+        if (nftPrevious && nftPrevious?.data?.uri === uri) {
+          oldMetadata = nftPrevious?.data?.customMetaData;
+        } else {
+          oldMetadata = await fetchOldMetadata(mint, uri);
+          const attributes = oldMetadata?.attributes.reduce(
+            (obj, item) =>
+              Object.assign(obj, { [camelCase(item.trait_type)]: item.value }),
+            {}
+          );
+
+          oldMetadata = { ...oldMetadata, attributes };
+        }
+
+        return {
+          ...nft,
+          data: {
+            ...nft.data,
+            name,
+            symbol,
+            uri,
+            customMetaData: oldMetadata,
+          },
+        };
+      })
+    );
+
+    const metadataJSON = JSON.stringify(nftsWithMetadata, null, 2);
+    fs.writeFileSync(
+      path.resolve(__dirname, `../../allNftsWithMetadata.json`),
+      metadataJSON
+    );
+
+    console.log(`allNftsWithMetadata.json updated ${Date.now()}`);
+  }
 };
