@@ -2,3 +2,6 @@
 /app/uploads
 
 allNftsWithMetadata.json
+dump.rdb*
+
+nftNames.json
